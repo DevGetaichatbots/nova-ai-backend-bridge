@@ -1,0 +1,14 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "KLTQ878LRNQ6f-zYAZpPn"
+uri = "file://Nova_Insight_Agent_Training.txt"
+type = "text"
+title = "Nova Insight — Agent Training & Configuration"
+
+[[outputs]]
+id = "61_poFO-zXbozxeTJ3JoQ"
+uri = "file://BACKEND_GUIDE.md"
+type = "text"
+title = "Complete Backend Guide"

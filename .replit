@@ -1,0 +1,52 @@
+entrypoint = "main.py"
+modules = ["python-3.11", "postgresql-16"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["cargo", "libiconv", "libxcrypt", "postgresql", "rustc"]
+
+[unitTest]
+language = "python3"
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix"]
+
+[deployment]
+run = ["gunicorn", "--bind=0.0.0.0:5000", "--workers=1", "--worker-class=uvicorn.workers.UvicornWorker", "--timeout=300", "src.main:app"]
+deploymentTarget = "autoscale"
+
+[agent]
+expertMode = true
+integrations = ["github:1.0.0"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "RAG Agent API"
+
+[[workflows.workflow]]
+name = "RAG Agent API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python -m uvicorn src.main:app --host 0.0.0.0 --port 5000 --reload"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[userenv]
+
+[userenv.shared]
