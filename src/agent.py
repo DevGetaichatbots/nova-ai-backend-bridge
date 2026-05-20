@@ -961,6 +961,70 @@ Use English headers: `## DATA_TRUST`, `## EXECUTIVE_TOP`, `## BIGGEST_RISK`, `##
 }
 
 
+_NUSF_DATA_FORMAT_SECTION = """## DATA FORMAT: NUSF (Pre-Normalized)
+
+The data you receive has been pre-normalized to NUSF (Normalized Unified Schedule Format).
+You do NOT need to detect document types or map column names — all fields are already standardized.
+
+NUSF CSV format: semicolon-separated, each row = one activity.
+Each chunk begins with: "FORMAT: NUSF CSV — each row = one activity."
+
+| Field | Meaning | Notes |
+|-------|---------|-------|
+| `source_id` | Task identifier (from original format) | Use to match tasks between OLD and NEW |
+| `name` | Task name / description | Already human-readable |
+| `planned_start` | Planned start date | dd-mm-yyyy |
+| `planned_finish` | Planned finish date | dd-mm-yyyy |
+| `percent_complete` | Completion percentage | 0.0–100.0 |
+| `activity_type` | Task classification | TASK / SUMMARY / MILESTONE / LOE |
+| `wbs_code` | Work breakdown structure code | Empty if not available |
+| `discipline` | Trade or discipline | e.g. EL, VVS, Ventilation — empty if not available |
+| `duration_hours` | Duration in working hours | 8h ≈ 1 working day; 0 = milestone |
+| `actual_start` | Actual start date | dd-mm-yyyy or empty if not yet started |
+| `actual_finish` | Actual finish date | dd-mm-yyyy or empty if not yet complete |
+
+### Task Matching (NUSF):
+- Same `source_id` in both files = SAME task → compare `planned_finish`, `percent_complete`
+- `source_id` in NEW only = **ADDED task**
+- `source_id` in OLD only = **REMOVED task**
+- Same `source_id`, `planned_finish` later in NEW = **DELAYED task**
+- Same `source_id`, `planned_finish` earlier in NEW = **ACCELERATED task**
+- Same `source_id`, dates same but other fields changed = **MODIFIED task**
+- Rows where `activity_type = SUMMARY` are schedule grouping headers — include if `planned_finish` changed, otherwise skip
+- Milestones: `activity_type = MILESTONE` (duration_hours = 0)
+- A task is complete when `percent_complete = 100.0`
+
+---
+
+"""
+
+
+def _build_nusf_system_prompt() -> str:
+    """Build NUSF-specific comparison system prompt.
+
+    Replaces the raw-format AUTO-DETECT, document-type, and ADAPTIVE COLUMN
+    HANDLING sections with a short NUSF field reference.  All other sections
+    (HUMAN-READABLE TASK NAME TRANSLATION, CORE OPERATING RULES, output
+    format, etc.) are kept intact.
+    """
+    auto_detect_marker = "## AUTO-DETECT DOCUMENT TYPE"
+    human_readable_marker = "## HUMAN-READABLE TASK NAME TRANSLATION (MANDATORY FOR ALL OUTPUT)"
+    adaptive_start = "## ADAPTIVE COLUMN HANDLING"
+    core_rules_marker = "## CORE OPERATING RULES"
+
+    before = SYSTEM_PROMPT_BASE[: SYSTEM_PROMPT_BASE.index(auto_detect_marker)]
+    human_readable_section = SYSTEM_PROMPT_BASE[
+        SYSTEM_PROMPT_BASE.index(human_readable_marker):
+        SYSTEM_PROMPT_BASE.index(adaptive_start)
+    ]
+    after_adaptive = SYSTEM_PROMPT_BASE[SYSTEM_PROMPT_BASE.index(core_rules_marker):]
+
+    return before + _NUSF_DATA_FORMAT_SECTION + human_readable_section + after_adaptive
+
+
+SYSTEM_PROMPT_NUSF = _build_nusf_system_prompt()
+
+
 class RAGAgent:
     def __init__(self):
         self.client = AzureOpenAI(
@@ -1379,7 +1443,8 @@ class RAGAgent:
         top_k: int = 20,
         preloaded_context: str = None,
         old_filename: str = None,
-        new_filename: str = None
+        new_filename: str = None,
+        data_format: str = "raw",
     ) -> dict:
         self._last_diff_data = None
         self._last_total_data_rows = 0
@@ -1398,7 +1463,15 @@ class RAGAgent:
             logger.info(f"  Skipping vector store retrieval for non-comparison query")
         
         lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["en"])
-        system_prompt = f"{SYSTEM_PROMPT_BASE}\n\n{lang_instruction}"
+
+        effective_format = data_format
+        if effective_format == "raw" and "FORMAT: NUSF CSV" in context:
+            effective_format = "nusf"
+            logger.info("  Auto-detected NUSF chunks — switching to NUSF system prompt")
+
+        base_prompt = SYSTEM_PROMPT_NUSF if effective_format == "nusf" else SYSTEM_PROMPT_BASE
+        logger.info(f"  [ComparisonAgent] Prompt variant: {'NUSF (pre-normalized)' if effective_format == 'nusf' else 'RAW (original columns)'}")
+        system_prompt = f"{base_prompt}\n\n{lang_instruction}"
 
         data_tokens = int(len(context.encode("utf-8")) * self.TOKENS_PER_BYTE)
         system_tokens = len(system_prompt) // 3

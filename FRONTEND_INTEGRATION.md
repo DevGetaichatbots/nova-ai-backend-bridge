@@ -64,7 +64,7 @@ Save `preloaded_context` and `total_data_rows` — you can pass them to `/query`
 
 ---
 
-### 3. `POST /query` — Query Comparison Agent
+### 3. `POST /query` — Query Comparison Agent (v1)
 
 **Request (form-data):**
 
@@ -84,6 +84,34 @@ Save `preloaded_context` and `total_data_rows` — you can pass them to `/query`
   "sources": ["table_old_xxx", "table_new_xxx"],
   "context_chunks": 1,
   "format": "html"
+}
+```
+
+---
+
+### 3b. `POST /v2/query` — Query Comparison Agent (v2 / NUSF)
+
+Use this endpoint when the schedules were uploaded via `POST /v2/upload`. It explicitly uses the NUSF-aware prompt — no auto-detection needed.
+
+**Request (form-data) — identical fields to `/query`:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `query` | string | yes | — | User's question |
+| `vs_table` | string | yes | — | The `session_id` from v2 upload |
+| `old_session_id` | string | yes | — | The `old_session_id` from v2 upload |
+| `new_session_id` | string | yes | — | The `new_session_id` from v2 upload |
+| `language` | string | no | `"en"` | `"en"` or `"da"` (Danish) |
+| `format` | string | no | `"html"` | Always use `"html"` |
+
+**Response** — same shape as `/query`, plus `"pipeline": "nusf"`:
+```json
+{
+  "response": "<div class=\"agent-response\" ...>...full HTML...</div>",
+  "sources": ["table_old_xxx", "table_new_xxx"],
+  "context_chunks": 1,
+  "format": "html",
+  "pipeline": "nusf"
 }
 ```
 
@@ -225,7 +253,7 @@ Short answers like "summarize in 2 sentences" get a clean wrapper:
 
 ## Frontend Flow (Step by Step)
 
-### Comparison Agent Flow
+### Comparison Agent Flow (v1)
 
 ```
 1. Generate IDs
@@ -244,6 +272,30 @@ Short answers like "summarize in 2 sentences" get a clean wrapper:
 4. POST /query  (user asks a question)
    ├── Send: query, vs_table, old_session_id, new_session_id
    └── Returns: { response: "<html>..." }
+
+5. Inject response HTML into your container
+   └── document.getElementById('results').innerHTML = json.response
+```
+
+### Comparison Agent Flow (v2 / NUSF)
+
+Use this flow when you want NUSF-normalized analysis (deterministic prompt, no auto-detection).
+
+```
+1. Generate IDs  (same as v1)
+   ├── session_id = "session_" + randomHex(20)
+   ├── old_session_id = "table_old_" + randomId()
+   └── new_session_id = "table_new_" + randomId()
+
+2. POST /v2/upload  (with both files + IDs)
+   └── Returns: upload_id
+
+3. Poll GET /v2/upload/progress/{upload_id}  (every 2-3 seconds)
+   └── When status = "complete" → stop polling
+
+4. POST /v2/query  (user asks a question)
+   ├── Send: query, vs_table, old_session_id, new_session_id
+   └── Returns: { response: "<html>...", pipeline: "nusf" }
 
 5. Inject response HTML into your container
    └── document.getElementById('results').innerHTML = json.response

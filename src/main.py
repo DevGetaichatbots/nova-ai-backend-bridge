@@ -205,8 +205,8 @@ async def upload_schedules(
     new_filename = new_schedule.filename or "new_schedule.pdf"
     
     if not _is_allowed_file(old_filename) or not _is_allowed_file(new_filename):
-        logger.error("Invalid file type - only PDF and CSV accepted")
-        raise HTTPException(status_code=400, detail="Only PDF and CSV files are accepted")
+        logger.error("Invalid file type - only PDF, CSV, Excel (.xlsx), MPP, and MS Project XML accepted")
+        raise HTTPException(status_code=400, detail="Only PDF, CSV, Excel (.xlsx), Microsoft Project (.mpp), and MS Project XML (.xml) files are accepted")
     
     try:
         old_pdf_bytes = await old_schedule.read()
@@ -243,6 +243,12 @@ async def upload_schedules(
                     if _is_csv(filename):
                         logger.info(f"  Processing CSV file: {filename}")
                         chunks = _parse_csv_to_chunks(file_bytes, filename)
+                    elif _is_mpp(filename):
+                        logger.info(f"  Processing MPP file: {filename}")
+                        chunks = _process_mpp_to_chunks(file_bytes, filename)
+                    elif _is_mspdi(filename):
+                        logger.info(f"  Processing MS Project XML file: {filename}")
+                        chunks = _process_mspdi_to_chunks(file_bytes, filename)
                     else:
                         logger.info(f"  Processing PDF file: {filename}")
                         chunks = process_pdf_binary(file_bytes, filename)
@@ -328,7 +334,8 @@ async def query_agent(
     old_session_id: str = Form(...),
     new_session_id: str = Form(...),
     language: str = Form("en"),
-    format: str = Form(None)
+    format: str = Form(None),
+    data_format: str = Form("raw"),
 ):
     host = request.headers.get("host", "")
     is_dev = any(dev_host in host for dev_host in DEV_HOSTS)
@@ -365,7 +372,8 @@ async def query_agent(
                 language=language,
                 top_k=10,
                 old_filename=old_filename_clean,
-                new_filename=new_filename_clean
+                new_filename=new_filename_clean,
+                data_format=data_format,
             )
         )
         
@@ -542,13 +550,45 @@ def _clean_gantt_noise(text: str) -> str:
     return "\n".join(clean_lines)
 
 
-ALLOWED_EXTENSIONS = {".pdf", ".csv"}
+ALLOWED_EXTENSIONS = {".pdf", ".csv", ".xlsx", ".mpp", ".xml"}
 
 def _is_allowed_file(filename: str) -> bool:
     return any(filename.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS)
 
 def _is_csv(filename: str) -> bool:
     return filename.lower().endswith(".csv")
+
+def _is_mpp(filename: str) -> bool:
+    return filename.lower().endswith(".mpp")
+
+def _is_mspdi(filename: str) -> bool:
+    return filename.lower().endswith(".xml")
+
+
+def _process_mpp_to_chunks(file_bytes: bytes, filename: str) -> list[dict]:
+    """Extract task rows from an .mpp file and return compact CSV chunks."""
+    from ingestion.extractors.mpp import MPPExtractor
+    from src.pdf_processor import rows_to_compact_csv_chunks
+
+    extractor = MPPExtractor()
+    extracted = extractor.extract_from_bytes(file_bytes, filename)
+    headers = extracted.get("headers", [])
+    rows = extracted.get("rows", [])
+    logger.info(f"  [MPP] {filename}: {len(headers)} columns, {len(rows)} data rows")
+    return rows_to_compact_csv_chunks(headers, rows, filename)
+
+
+def _process_mspdi_to_chunks(file_bytes: bytes, filename: str) -> list[dict]:
+    """Extract task rows from an MS Project XML (.xml) file and return compact CSV chunks."""
+    from ingestion.extractors.mspdi import MspdiExtractor
+    from src.pdf_processor import rows_to_compact_csv_chunks
+
+    extractor = MspdiExtractor()
+    extracted = extractor.extract_from_bytes(file_bytes, filename)
+    headers = extracted.get("headers", [])
+    rows = extracted.get("rows", [])
+    logger.info(f"  [MSPDI] {filename}: {len(headers)} columns, {len(rows)} data rows")
+    return rows_to_compact_csv_chunks(headers, rows, filename)
 
 def _detect_delimiter(sample: str) -> str:
     counts = {}
@@ -634,7 +674,7 @@ async def predictive_analysis(
         analysis_id = str(uuid.uuid4())[:12]
 
     filename = schedule.filename or "schedule.pdf"
-    filename_clean = filename.replace(".pdf", "").replace(".PDF", "").replace(".csv", "").replace(".CSV", "")
+    filename_clean = filename.replace(".pdf", "").replace(".PDF", "").replace(".csv", "").replace(".CSV", "").replace(".xml", "").replace(".XML", "").replace(".mpp", "").replace(".MPP", "")
 
     reference_date = _extract_reference_date(filename)
 
@@ -646,7 +686,7 @@ async def predictive_analysis(
     if not _is_allowed_file(filename):
         _update_progress(analysis_id, "error", language)
         _schedule_progress_cleanup(analysis_id, delay=60)
-        raise HTTPException(status_code=400, detail="Only PDF and CSV files are accepted")
+        raise HTTPException(status_code=400, detail="Only PDF, CSV, Excel (.xlsx), Microsoft Project (.mpp), and MS Project XML (.xml) files are accepted")
 
     try:
         file_bytes = await schedule.read()
@@ -657,6 +697,8 @@ async def predictive_analysis(
         loop = asyncio.get_event_loop()
 
         is_csv_file = _is_csv(filename)
+        is_mpp_file = _is_mpp(filename)
+        is_mspdi_file = _is_mspdi(filename)
 
         if is_csv_file:
             logger.info(f"  Parsing CSV directly (no OCR needed)...")
@@ -664,6 +706,28 @@ async def predictive_analysis(
             row_count = context.count("\n")
             parse_elapsed = time.time() - start_time
             logger.info(f"  CSV parsed in {parse_elapsed:.1f}s")
+        elif is_mpp_file:
+            logger.info(f"  Parsing MPP via MPXJ (no OCR needed)...")
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: _process_mpp_to_chunks(file_bytes, filename)
+            )
+            table_count = len(chunks)
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            parse_elapsed = time.time() - start_time
+            logger.info(f"  MPP parsed in {parse_elapsed:.1f}s: {table_count} chunks, ~{row_count} rows")
+            context = _build_predictive_context(chunks, filename_clean)
+        elif is_mspdi_file:
+            logger.info(f"  Parsing MS Project XML (no OCR needed)...")
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: _process_mspdi_to_chunks(file_bytes, filename)
+            )
+            table_count = len(chunks)
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            parse_elapsed = time.time() - start_time
+            logger.info(f"  MSPDI parsed in {parse_elapsed:.1f}s: {table_count} chunks, ~{row_count} rows")
+            context = _build_predictive_context(chunks, filename_clean)
         else:
             logger.info(f"  Running OCR on PDF...")
             chunks = await loop.run_in_executor(
@@ -733,15 +797,37 @@ async def predictive_analysis(
                 _f.write(f"{'─'*90}\n")
                 _f.write(f"  STEP 2: DATA EXTRACTION\n")
                 _f.write(f"{'─'*90}\n")
-                if not is_csv_file:
+                if is_csv_file:
+                    _f.write(f"  CSV rows:       ~{row_count}\n\n")
+                elif is_mpp_file:
+                    _f.write(f"  MPP parse time: {parse_elapsed:.1f}s\n")
+                    _f.write(f"  Table chunks:   {table_count}\n")
+                    _f.write(f"  Total rows:     ~{row_count}\n")
+                    _f.write(f"  Total chunks:   {len(chunks)}\n\n")
+                    _f.write(f"  --- COMPLETE MPP EXTRACTION OUTPUT (all chunks) ---\n\n")
+                    for ci, c in enumerate(chunks):
+                        ctype = c.get("metadata", {}).get("type", "unknown")
+                        ccontent = c.get("content", "")
+                        _f.write(f"  [CHUNK {ci} | type={ctype} | {len(ccontent)} chars]\n")
+                        _f.write(ccontent)
+                        _f.write(f"\n\n")
+                elif is_mspdi_file:
+                    _f.write(f"  MSPDI parse time: {parse_elapsed:.1f}s\n")
+                    _f.write(f"  Table chunks:     {table_count}\n")
+                    _f.write(f"  Total rows:       ~{row_count}\n")
+                    _f.write(f"  Total chunks:     {len(chunks)}\n\n")
+                    _f.write(f"  --- COMPLETE MSPDI EXTRACTION OUTPUT (all chunks) ---\n\n")
+                    for ci, c in enumerate(chunks):
+                        ctype = c.get("metadata", {}).get("type", "unknown")
+                        ccontent = c.get("content", "")
+                        _f.write(f"  [CHUNK {ci} | type={ctype} | {len(ccontent)} chars]\n")
+                        _f.write(ccontent)
+                        _f.write(f"\n\n")
+                else:
                     _f.write(f"  OCR Time:       {ocr_elapsed:.1f}s\n")
                     _f.write(f"  Table chunks:   {table_count}\n")
                     _f.write(f"  Total rows:     ~{row_count}\n")
                     _f.write(f"  Total chunks:   {len(chunks)}\n\n")
-                else:
-                    _f.write(f"  CSV rows:       ~{row_count}\n\n")
-
-                if not is_csv_file:
                     _f.write(f"  --- COMPLETE OCR OUTPUT (all chunks) ---\n\n")
                     for ci, c in enumerate(chunks):
                         ctype = c.get("metadata", {}).get("type", "unknown")
@@ -872,6 +958,34 @@ async def get_predictive_progress(analysis_id: str):
     resp = {k: v for k, v in progress.items() if not k.startswith("_")}
     return resp
 
+
+# ── NUSF v2 Routes ───────────────────────────────────────────────────────────
+# Dependency injection keeps ingestion/ free of src/ imports.
+# All downstream objects (vector_store_manager, predictive_agent, etc.) are
+# wired here in src/main.py and passed into the router at startup.
+# Existing /upload, /query, /predictive routes above are NOT modified.
+from ingestion.routes.ingestion import (
+    router as _v2_router,
+    configure as _v2_configure,
+    RouterDependencies,
+)
+from src.vector_store import vector_store_manager as _vsm
+from src.database import save_session_metadata as _save_session_metadata
+from src.predictive_html_formatter import format_predictive_as_html as _format_html
+
+from src.database import get_session_metadata as _get_session_metadata
+
+_v2_configure(RouterDependencies(
+    vector_store_manager=_vsm,
+    save_session_metadata=_save_session_metadata,
+    predictive_agent=predictive_agent,
+    format_html=_format_html,
+    rag_agent=rag_agent,
+    format_comparison_html=format_response_as_html,
+    get_session_metadata=_get_session_metadata,
+))
+app.include_router(_v2_router, prefix="/v2")
+# ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     import uvicorn

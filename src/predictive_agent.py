@@ -859,6 +859,69 @@ Enum values stay as defined in the schema.
 }
 
 
+_NUSF_PREDICTIVE_FORMAT_SECTION = """## DATA FORMAT: NUSF (Pre-Normalized)
+
+The schedule data has been pre-normalized to NUSF (Normalized Unified Schedule Format).
+You do NOT need to detect document types or map column names — all fields are already standardized.
+
+NUSF CSV format: semicolon-separated, each row = one activity.
+Each chunk begins with: "FORMAT: NUSF CSV — each row = one activity."
+
+| Field | Meaning | Notes |
+|-------|---------|-------|
+| `source_id` | Task identifier | Use as the `id` field in your JSON output. Never empty. |
+| `name` | Task name / description | Already human-readable |
+| `planned_start` | Planned start date | dd-mm-yyyy |
+| `planned_finish` | Planned finish date | dd-mm-yyyy |
+| `percent_complete` | Completion percentage | 0.0–100.0; use for delay detection |
+| `activity_type` | Task classification | TASK / SUMMARY / MILESTONE / LOE |
+| `wbs_code` | Work breakdown structure code | Use for area/hierarchy context; empty if not available |
+| `discipline` | Trade or discipline | e.g. EL, VVS, Ventilation; use as area and responsible party |
+| `duration_hours` | Duration in working hours | 8h ≈ 1 working day; 0 = milestone |
+| `actual_start` | Actual start date | dd-mm-yyyy or empty if not yet started |
+| `actual_finish` | Actual finish date | dd-mm-yyyy or empty if not yet complete |
+
+### Delay Detection (NUSF):
+An activity is DELAYED if BOTH are true:
+1. `planned_start` < reference_date (compare date parts only — dd-mm-yyyy)
+2. `percent_complete = 0.0` (not started)
+
+ALSO delayed if: `actual_start` is filled AND `actual_finish` is empty AND `planned_finish` < reference_date (started but not completed on time).
+
+EXCLUDE from analysis:
+- Rows where `activity_type = SUMMARY` (grouping headers)
+- Rows where `percent_complete = 100.0` (fully complete)
+
+Milestones (`activity_type = MILESTONE`, duration_hours = 0) with `planned_start` < reference_date and 0% are delayed — include them.
+
+Task ID: use `source_id` as the `id` field. NEVER leave empty. NEVER use row numbers.
+Area / zone: use `discipline` column value, or parse from `wbs_code` if `discipline` is empty.
+Responsible party: use `discipline` column value.
+
+"""
+
+
+def _build_nusf_predictive_prompt() -> str:
+    """Build NUSF-specific predictive system prompt.
+
+    Replaces the raw-format AUTO-DETECT DOCUMENT TYPE, FORMAT 1-5,
+    ADAPTIVE COLUMN MAPPING, FIELD DEFINITIONS, and RESPONSIBLE PARTY
+    IDENTIFICATION sections with a short NUSF field reference.
+    The AREA/ZONE STRUCTURE section and everything from </context> onward
+    are kept intact.
+    """
+    auto_detect_marker = "## AUTO-DETECT DOCUMENT TYPE"
+    area_zone_marker = "## AREA/ZONE STRUCTURE"
+
+    before = PREDICTIVE_SYSTEM_PROMPT[: PREDICTIVE_SYSTEM_PROMPT.index(auto_detect_marker)]
+    after_adaptive = PREDICTIVE_SYSTEM_PROMPT[PREDICTIVE_SYSTEM_PROMPT.index(area_zone_marker):]
+
+    return before + _NUSF_PREDICTIVE_FORMAT_SECTION + after_adaptive
+
+
+PREDICTIVE_SYSTEM_PROMPT_NUSF = _build_nusf_predictive_prompt()
+
+
 class PredictiveAgent:
     def __init__(self):
         self.client = AzureOpenAI(
@@ -875,14 +938,17 @@ class PredictiveAgent:
         user_query: str,
         language: str = "en",
         schedule_filename: str = None,
-        reference_date: str = None
+        reference_date: str = None,
+        data_format: str = "raw",
     ) -> dict:
         logger.info(f"  [PredictiveAgent] Starting analysis with {self.deployment} (strict JSON schema)...")
 
         lang_instruction = PREDICTIVE_LANGUAGE_INSTRUCTIONS.get(
             language, PREDICTIVE_LANGUAGE_INSTRUCTIONS["en"]
         )
-        system_prompt = f"{PREDICTIVE_SYSTEM_PROMPT}\n\n{lang_instruction}"
+        base_prompt = PREDICTIVE_SYSTEM_PROMPT_NUSF if data_format == "nusf" else PREDICTIVE_SYSTEM_PROMPT
+        logger.info(f"  [PredictiveAgent] Prompt variant: {'NUSF (pre-normalized)' if data_format == 'nusf' else 'RAW (original columns)'}")
+        system_prompt = f"{base_prompt}\n\n{lang_instruction}"
 
         schedule_label = schedule_filename if schedule_filename else "Schedule"
 
@@ -906,19 +972,23 @@ This date was extracted from the uploaded filename. You MUST use this exact date
 Do NOT use any other date. Do NOT use today's date. Use: {reference_date}
 """
 
-        user_message = f"""Analyze the following construction schedule data.
+        if data_format == "nusf":
+            critical_instructions = """\
+CRITICAL INSTRUCTIONS (NUSF format):
+1. The data above is pre-normalized NUSF CSV. Every row = one activity. No OCR artefacts.
+2. Column headers: source_id | name | planned_start | planned_finish | percent_complete | activity_type | wbs_code | discipline | duration_hours | actual_start | actual_finish
+3. Use the "source_id" column value as the "id" field in your JSON output. Never leave it empty.
+4. Use "percent_complete" (0.0–100.0) as the progress indicator.
+5. Use "planned_start" (dd-mm-yyyy) as the start date for overdue calculations.
 
-TODAY'S DATE: {today_str} ({today_iso})
-Today is {en_days[today.weekday()]}. Use this to set concrete deadlines in executive_actions (e.g. real day names and dates like "torsdag d. 3. april" or "Thursday, April 3").
-
-Schedule filename: "{schedule_label}"
-{ref_date_instruction}
-═══════════════════════════════════════════════════════════
-COMPLETE SCHEDULE DATA (ALL PAGES):
-═══════════════════════════════════════════════════════════
-{context}
-═══════════════════════════════════════════════════════════
-
+PHASE 1 — FIND ALL DELAYED ACTIVITIES:
+- A row is delayed if: planned_start < reference_date AND percent_complete = 0.0
+- Also delayed if: actual_start is filled AND actual_finish is empty AND planned_finish < reference_date
+- Include ALL such rows. If there are 30 delayed activities, output all 30. If there are 50, output all 50.
+- Do NOT limit to 4 or 5. Scan EVERY row. Include activities from ALL disciplines/areas.
+- Only skip rows where activity_type = SUMMARY (grouping headers) or percent_complete = 100.0."""
+        else:
+            critical_instructions = """\
 CRITICAL INSTRUCTIONS:
 1. The data above is a COMPLETE markdown table extracted from the PDF via OCR. Every row is included.
 2. The table has column headers in the first row (e.g. Id, Opgavenavn, Varighed, Startdato, Slutdato, % arbejde færdigt, etc.)
@@ -932,7 +1002,22 @@ PHASE 1 — FIND ALL DELAYED ACTIVITIES:
 - Do NOT limit to 4 or 5. Scan EVERY row. Include activities from ALL areas (Omr. 1, Omr. 2, Omr. 3, etc.)
 - Activities from year 2025, 2024, 2023, etc. with 0% are ALL delayed relative to a 2026 reference date.
 - Multiple activities with the same start date? Include ALL of them if they have 0%.
-- Only skip grouping/summary headers (e.g. section headers like "Omr. 1", "E100.XX", "Globals", "Afhængigheder", "Færdiggøre projektering").
+- Only skip grouping/summary headers (e.g. section headers like "Omr. 1", "E100.XX", "Globals", "Afhængigheder", "Færdiggøre projektering")."""
+
+        user_message = f"""Analyze the following construction schedule data.
+
+TODAY'S DATE: {today_str} ({today_iso})
+Today is {en_days[today.weekday()]}. Use this to set concrete deadlines in executive_actions (e.g. real day names and dates like "torsdag d. 3. april" or "Thursday, April 3").
+
+Schedule filename: "{schedule_label}"
+{ref_date_instruction}
+═══════════════════════════════════════════════════════════
+COMPLETE SCHEDULE DATA (ALL PAGES):
+═══════════════════════════════════════════════════════════
+{context}
+═══════════════════════════════════════════════════════════
+
+{critical_instructions}
 
 PHASE 2 — DECISION SUPPORT:
 - Classify each delayed activity by task_type
