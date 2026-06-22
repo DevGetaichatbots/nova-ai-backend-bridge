@@ -93,18 +93,63 @@ def _split_semicolon_row(line: str) -> list[str]:
     return [part.strip() for part in line.split(";")]
 
 
+def _split_location_path(value: str) -> list[str]:
+    return [part.strip() for part in re.split(r"\s*/\s*", str(value or "")) if part.strip()]
+
+
+def _floor_from_path_part(part: str) -> str:
+    value = str(part or "").strip()
+    lower = value.lower()
+    if not value:
+        return ""
+    if lower in ("st.", "st", "stue"):
+        return "Ground Floor"
+    if "kælder" in lower or "kaelder" in lower or "basement" in lower:
+        m = re.search(r"-\s*(\d+)", value)
+        return f"Basement -{m.group(1)}" if m else "Basement"
+    m = re.fullmatch(r"(\d+)\.", value)
+    if m:
+        return f"{m.group(1)}. Floor"
+    m = re.search(r"\b(\d+)\.\s*sal\b", value, re.I)
+    if m:
+        return f"{m.group(1)}. Floor"
+    return ""
+
+
+def _location_from_path(value: str) -> dict:
+    parts = _split_location_path(value)
+    if not parts:
+        return {"area": "", "floor": "", "phase": ""}
+
+    area = parts[1] if len(parts) > 1 else ""
+    floor = ""
+    phase = ""
+
+    for part in reversed(parts[1:]):
+        floor = _floor_from_path_part(part)
+        if floor:
+            break
+
+    for part in parts[2:]:
+        if part == floor:
+            continue
+        if _floor_from_path_part(part):
+            continue
+        phase = part
+        break
+
+    return {"area": area, "floor": floor, "phase": phase}
+
+
 def _location_from_row(name: str, row: dict) -> dict:
-    loc = _extract_location(
-        " ".join(
-            str(row.get(key, ""))
-            for key in ("location_path", "wbs_code", "area", "floor", "phase")
-        )
-    )
+    path_value = row.get("location_path", "") or row.get("wbs_code", "")
+    path_loc = _location_from_path(path_value)
+    loc = _extract_location(" ".join(str(row.get(key, "")) for key in ("wbs_code", "area", "floor", "phase")))
     fallback = _extract_location(name)
     return {
-        "area": loc.get("area") or fallback.get("area", ""),
-        "floor": loc.get("floor") or fallback.get("floor", ""),
-        "phase": loc.get("phase") or fallback.get("phase", ""),
+        "area": path_loc.get("area") or loc.get("area") or fallback.get("area", ""),
+        "floor": path_loc.get("floor") or loc.get("floor") or fallback.get("floor", ""),
+        "phase": path_loc.get("phase") or loc.get("phase") or fallback.get("phase", ""),
     }
 
 
@@ -138,8 +183,31 @@ def _trade_code(name: str, row: dict | None = None) -> str | None:
     return None
 
 
-def _extract_activity_rows(chunks: list[dict], scope_prefixes: list[str]) -> tuple[set[str], dict]:
-    unique_names: set[str] = set()
+def _activity_identity(name: str, row: dict) -> str:
+    source_id = str(row.get("source_id", "")).strip()
+    if source_id:
+        return f"source:{source_id}"
+    location = str(row.get("location_path", "") or row.get("wbs_code", "")).strip()
+    if location:
+        return f"{_norm_key(name)}|{_norm_key(location)}"
+    return _norm_key(name)
+
+
+def _find_activity_meta(activity_metadata: dict | None, name: str) -> dict:
+    if not activity_metadata:
+        return {}
+    key = _norm_key(name)
+    if key in activity_metadata:
+        return activity_metadata[key]
+    for meta in activity_metadata.values():
+        if _norm_key(meta.get("name", "")) == key:
+            return meta
+    return {}
+
+
+def _extract_activity_rows(chunks: list[dict], scope_prefixes: list[str]) -> tuple[list[dict], dict]:
+    activity_rows: list[dict] = []
+    seen_identities: set[str] = set()
     metadata: dict[str, dict] = {}
     current_headers: list[str] | None = None
 
@@ -166,12 +234,17 @@ def _extract_activity_rows(chunks: list[dict], scope_prefixes: list[str]) -> tup
             if not name or not _activity_in_scope(name, scope_prefixes):
                 continue
 
-            unique_names.add(name)
-            key = _norm_key(name)
-            if key not in metadata:
-                metadata[key] = {"name": name, "row": row, "location": _location_from_row(name, row)}
+            identity = _activity_identity(name, row)
+            if identity in seen_identities:
+                continue
+            seen_identities.add(identity)
 
-    return unique_names, metadata
+            meta = {"name": name, "row": row, "location": _location_from_row(name, row)}
+            activity_rows.append(meta)
+            metadata[identity] = meta
+            metadata.setdefault(_norm_key(name), meta)
+
+    return activity_rows, metadata
 
 
 def _attach_locations(items: list[dict], activity_metadata: dict | None = None) -> list[dict]:
@@ -180,7 +253,7 @@ def _attach_locations(items: list[dict], activity_metadata: dict | None = None) 
         item = dict(item)
         name = item.get("activity", "")
         existing = item.get("location") if isinstance(item.get("location"), dict) else {}
-        meta = (activity_metadata or {}).get(_norm_key(name), {})
+        meta = _find_activity_meta(activity_metadata, name)
         derived = meta.get("location") or _extract_location(name)
         item["location"] = {
             "area": existing.get("area") or derived.get("area", ""),
@@ -312,11 +385,12 @@ class CompareV4Agent(CompareV3Agent):
                 new_chunks = vector_store_manager.fetch_all_from_stores(
                     [new_table], chunk_type="table"
                 ).get(new_table, [])
-                unique_names, activity_metadata = _extract_activity_rows(new_chunks, scope_prefixes)
-                true_selected_count = len(unique_names)
-                for name in unique_names:
+                activity_rows, activity_metadata = _extract_activity_rows(new_chunks, scope_prefixes)
+                true_selected_count = len(activity_rows)
+                for activity in activity_rows:
+                    name = activity.get("name", "")
                     trade_counts["ALL"] += 1
-                    row = activity_metadata.get(_norm_key(name), {}).get("row", {})
+                    row = activity.get("row", {})
                     trade = _trade_code(name, row)
                     if trade:
                         trade_counts[trade] += 1

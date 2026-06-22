@@ -141,6 +141,46 @@ class CompareV4AgentTest(unittest.TestCase):
         self.assertIn("Level 02", data["filter_options"]["floors"])
         self.assertIn("Phase 1", data["filter_options"]["phases"])
 
+    def test_plandisc_location_path_populates_dashboard_filters(self):
+        chunks = [
+            {
+                "content": "\n".join(
+                    [
+                        "FORMAT: CSV - each row = one activity",
+                        "name;location_path;task_group_name;planned_start_date;planned_end_date;planned_shift_duration;planned_completion_pct;actual_start_date;actual_end_date;actual_completion_pct;actual_completion_date;actual_by;is_late;inspectedType;inspected_by;has_constraint;is_flagged",
+                        "EL - Kabeltræk;KatrineTorvet / Aptering Boliger / 109 - M (T4) / 2.;;2025-08-15 07:00:00;2025-10-01 15:00:00;48;100;;;;;;true;noProgress;;;",
+                        "VVS - Rørføring;KatrineTorvet / Råhus / Kælder område 1 / Delområde nord;;2025-08-15 07:00:00;2025-10-01 15:00:00;48;100;;;;;;true;noProgress;;;",
+                    ]
+                )
+            }
+        ]
+
+        agent = v4_module.CompareV4Agent.__new__(v4_module.CompareV4Agent)
+        agent.client = _FakeClient()
+        agent._retrieve_context = lambda *_args: ("", 1)
+
+        with patch.object(
+            v4_module.vector_store_manager,
+            "fetch_all_from_stores",
+            side_effect=lambda tables, chunk_type: {tables[0]: chunks},
+        ):
+            result = agent.analyze(
+                scope_filter="All activities",
+                reference_date="01-02-2026",
+                table_names=["old_table", "new_table"],
+                session_id="session_123",
+                old_filename="old.csv",
+                new_filename="new.csv",
+            )
+
+        filters = result["json"]["filter_options"]
+        self.assertIn("Aptering Boliger", filters["areas"])
+        self.assertIn("Råhus", filters["areas"])
+        self.assertIn("2. Floor", filters["floors"])
+        self.assertIn("Basement", filters["floors"])
+        self.assertIn("109 - M (T4)", filters["phases"])
+        self.assertIn("Delområde nord", filters["phases"])
+
 
 if __name__ == "__main__":
     unittest.main()
