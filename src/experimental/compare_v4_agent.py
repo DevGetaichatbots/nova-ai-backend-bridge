@@ -29,6 +29,7 @@ _FLOOR_PAT: list[tuple] = [
     (re.compile(r'\bground\s*floor\b', re.I),        'Ground Floor'),
     (re.compile(r'\b(\d+)\.\s*sal\b', re.I),         lambda m: f'{m.group(1)}. Floor'),
     (re.compile(r'\betage\s+(\d+)\b', re.I),         lambda m: f'{m.group(1)}. Floor'),
+    (re.compile(r'\blevel\s+([A-Z\d]+)\b', re.I),    lambda m: f'Level {m.group(1)}'),
     (re.compile(r'\bniveau\s+(\d+)\b', re.I),        lambda m: f'Level {m.group(1)}'),
     (re.compile(r'\b(\d+)(st|nd|rd|th)\s*fl', re.I),lambda m: f'{m.group(1)}. Floor'),
     (re.compile(r'\btag\b', re.I),                   'Roof'),
@@ -80,17 +81,117 @@ def _extract_location(name: str) -> dict:
     return {"floor": floor, "area": area, "phase": phase}
 
 
-def _attach_locations(items: list[dict]) -> list[dict]:
+def _norm_key(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
+
+
+def _norm_header(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
+
+
+def _split_semicolon_row(line: str) -> list[str]:
+    return [part.strip() for part in line.split(";")]
+
+
+def _location_from_row(name: str, row: dict) -> dict:
+    loc = _extract_location(
+        " ".join(
+            str(row.get(key, ""))
+            for key in ("location_path", "wbs_code", "area", "floor", "phase")
+        )
+    )
+    fallback = _extract_location(name)
+    return {
+        "area": loc.get("area") or fallback.get("area", ""),
+        "floor": loc.get("floor") or fallback.get("floor", ""),
+        "phase": loc.get("phase") or fallback.get("phase", ""),
+    }
+
+
+def _extract_activity_name(row: dict, parts: list[str]) -> str:
+    for key in ("name", "activity", "activity_name", "task_name"):
+        if row.get(key):
+            return str(row[key]).strip()
+    if row.get("source_id") and len(parts) > 1:
+        return parts[1].strip()
+    return parts[0].strip() if parts else ""
+
+
+def _trade_code(name: str, row: dict | None = None) -> str | None:
+    text = " ".join(
+        [
+            name or "",
+            str((row or {}).get("discipline", "")),
+            str((row or {}).get("task_group_name", "")),
+        ]
+    ).upper()
+    if text.startswith("EL -") or text.startswith("EL-") or "ELECTRICAL" in text:
+        return "EL"
+    if text.startswith("VVS -") or text.startswith("VVS-") or "PLUMBING" in text:
+        return "VVS"
+    if text.startswith("VENT -") or text.startswith("VENT-") or "VENTILATION" in text:
+        return "VENT"
+    if text.startswith("ARK -") or text.startswith("ARK-") or "ARCHITECTURE" in text:
+        return "ARK"
+    if text.startswith("BYGH -") or text.startswith("BYGH-") or "CIVIL" in text:
+        return "BYGH"
+    return None
+
+
+def _extract_activity_rows(chunks: list[dict], scope_prefixes: list[str]) -> tuple[set[str], dict]:
+    unique_names: set[str] = set()
+    metadata: dict[str, dict] = {}
+    current_headers: list[str] | None = None
+
+    for chunk in chunks:
+        content = chunk.get("content", "")
+        for raw_line in content.strip().split("\n"):
+            line = raw_line.strip()
+            if not line or ";" not in line or "FORMAT:" in line:
+                continue
+
+            parts = _split_semicolon_row(line)
+            normalized_parts = [_norm_header(part) for part in parts]
+            if any(part in normalized_parts for part in ("planned_start", "planned_start_date")):
+                current_headers = normalized_parts
+                continue
+
+            row = {}
+            if current_headers:
+                for idx, header in enumerate(current_headers):
+                    if header and idx < len(parts):
+                        row[header] = parts[idx]
+
+            name = _extract_activity_name(row, parts)
+            if not name or not _activity_in_scope(name, scope_prefixes):
+                continue
+
+            unique_names.add(name)
+            key = _norm_key(name)
+            if key not in metadata:
+                metadata[key] = {"name": name, "row": row, "location": _location_from_row(name, row)}
+
+    return unique_names, metadata
+
+
+def _attach_locations(items: list[dict], activity_metadata: dict | None = None) -> list[dict]:
     result = []
     for item in items:
         item = dict(item)
-        if "location" not in item:
-            item["location"] = _extract_location(item.get("activity", ""))
+        name = item.get("activity", "")
+        existing = item.get("location") if isinstance(item.get("location"), dict) else {}
+        meta = (activity_metadata or {}).get(_norm_key(name), {})
+        derived = meta.get("location") or _extract_location(name)
+        item["location"] = {
+            "area": existing.get("area") or derived.get("area", ""),
+            "floor": existing.get("floor") or derived.get("floor", ""),
+            "phase": existing.get("phase") or derived.get("phase", ""),
+        }
         result.append(item)
     return result
 
 
-def _compute_filter_options(data: dict) -> dict:
+def _compute_filter_options(data: dict, activity_metadata: dict | None = None) -> dict:
     areas: set[str] = set()
     floors: set[str] = set()
     phases: set[str] = set()
@@ -100,6 +201,11 @@ def _compute_filter_options(data: dict) -> dict:
             if loc.get("area"):  areas.add(loc["area"])
             if loc.get("floor"): floors.add(loc["floor"])
             if loc.get("phase"): phases.add(loc["phase"])
+    for meta in (activity_metadata or {}).values():
+        loc = meta.get("location", {})
+        if loc.get("area"):  areas.add(loc["area"])
+        if loc.get("floor"): floors.add(loc["floor"])
+        if loc.get("phase"): phases.add(loc["phase"])
     return {
         "areas":  sorted(areas),
         "floors": sorted(floors),
@@ -124,12 +230,13 @@ def _postprocess_v4(
     reference_date: str,
     old_filename: str,
     new_filename: str,
+    activity_metadata: dict | None = None,
 ) -> dict:
     result = _postprocess_v3(data, scope_prefixes, reference_date)
 
-    result["progress_vs_expected"] = _attach_locations(result["progress_vs_expected"])
-    result["not_started_overdue"]  = _attach_locations(result["not_started_overdue"])
-    result["point_of_no_return"]   = _attach_locations(result["point_of_no_return"])
+    result["progress_vs_expected"] = _attach_locations(result["progress_vs_expected"], activity_metadata)
+    result["not_started_overdue"]  = _attach_locations(result["not_started_overdue"], activity_metadata)
+    result["point_of_no_return"]   = _attach_locations(result["point_of_no_return"], activity_metadata)
 
     cp_raw = data.get("critical_path_activities", [])
     critical_path: list[dict] = []
@@ -140,7 +247,7 @@ def _postprocess_v4(
         if scope_prefixes and not _activity_in_scope(name, scope_prefixes):
             continue
         item = dict(item)
-        item.setdefault("location", _extract_location(name))
+        item = _attach_locations([item], activity_metadata)[0]
         critical_path.append(item)
     result["critical_path_activities"] = critical_path
 
@@ -148,7 +255,7 @@ def _postprocess_v4(
         d for d in data.get("delay_drivers", []) if isinstance(d, dict)
     ][:5]
 
-    result["filter_options"] = _compute_filter_options(result)
+    result["filter_options"] = _compute_filter_options(result, activity_metadata)
 
     sn_raw = data.get("summary_notes", {})
     progress = result["progress_vs_expected"]
@@ -198,31 +305,21 @@ class CompareV4Agent(CompareV3Agent):
 
         true_selected_count = 0
         trade_counts = {"EL": 0, "VVS": 0, "VENT": 0, "ARK": 0, "BYGH": 0, "ALL": 0}
+        activity_metadata: dict = {}
         try:
             if len(table_names) > 1:
                 new_table = table_names[1]
                 new_chunks = vector_store_manager.fetch_all_from_stores(
                     [new_table], chunk_type="table"
                 ).get(new_table, [])
-                unique_names: set[str] = set()
-                for chunk in new_chunks:
-                    content = chunk.get("content", "")
-                    for line in content.strip().split("\n"):
-                        if ";" in line and "planned_start_date" not in line and "planned_start" not in line and "FORMAT:" not in line:
-                            parts = line.split(";")
-                            if parts:
-                                name = parts[0].strip()
-                                if name and _activity_in_scope(name, scope_prefixes):
-                                    unique_names.add(name)
+                unique_names, activity_metadata = _extract_activity_rows(new_chunks, scope_prefixes)
                 true_selected_count = len(unique_names)
                 for name in unique_names:
                     trade_counts["ALL"] += 1
-                    u = name.upper()
-                    if u.startswith("EL -") or u.startswith("EL-"):     trade_counts["EL"]   += 1
-                    if u.startswith("VVS -") or u.startswith("VVS-"):   trade_counts["VVS"]  += 1
-                    if u.startswith("VENT -") or u.startswith("VENT-"): trade_counts["VENT"] += 1
-                    if u.startswith("ARK -") or u.startswith("ARK-"):   trade_counts["ARK"]  += 1
-                    if u.startswith("BYGH -") or u.startswith("BYGH-"): trade_counts["BYGH"] += 1
+                    row = activity_metadata.get(_norm_key(name), {}).get("row", {})
+                    trade = _trade_code(name, row)
+                    if trade:
+                        trade_counts[trade] += 1
                 logger.info(f"  V4 true selected count: {true_selected_count} (trades: {trade_counts})")
         except Exception as ex:
             logger.error(f"V4 activity count error: {ex}")
@@ -384,7 +481,7 @@ Extract all sections per the rules above. Output ONLY the JSON object."""
                 text = text[:-3]
 
             data = json.loads(text.strip())
-            data = _postprocess_v4(data, scope_prefixes, reference_date, old_filename, new_filename)
+            data = _postprocess_v4(data, scope_prefixes, reference_date, old_filename, new_filename, activity_metadata)
             if true_selected_count > 0:
                 data["executive_summary"]["selected_activities"] = true_selected_count
                 data["executive_summary"]["trade_counts"] = trade_counts

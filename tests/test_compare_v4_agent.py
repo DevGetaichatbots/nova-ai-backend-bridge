@@ -99,6 +99,48 @@ class CompareV4AgentTest(unittest.TestCase):
         self.assertEqual(summary["selected_activities"], 2)
         self.assertEqual(summary["trade_counts"]["ALL"], 2)
 
+    def test_nusf_rows_use_name_column_for_trade_and_location_metadata(self):
+        chunks = [
+            {
+                "content": "\n".join(
+                    [
+                        "FORMAT: CSV - each row = one activity",
+                        "source_id;name;planned_start;planned_finish;percent_complete;activity_type;wbs_code;discipline;duration_hours;actual_start;actual_finish",
+                        "1001;EL - Hovedledninger/sti;15-08-2026;01-10-2026;23;TASK;Building A > Level 02 > Phase 1;Electrical;80;;",
+                        "1002;VVS - Rørføring teknikrum;15-08-2026;01-10-2026;10;TASK;Building B > Basement > Phase 2;Plumbing;80;;",
+                    ]
+                )
+            }
+        ]
+
+        agent = v4_module.CompareV4Agent.__new__(v4_module.CompareV4Agent)
+        agent.client = _FakeClient()
+        agent._retrieve_context = lambda *_args: ("", 1)
+
+        with patch.object(
+            v4_module.vector_store_manager,
+            "fetch_all_from_stores",
+            side_effect=lambda tables, chunk_type: {tables[0]: chunks},
+        ):
+            result = agent.analyze(
+                scope_filter="All activities",
+                reference_date="01-02-2026",
+                table_names=["old_table", "new_table"],
+                session_id="session_123",
+                old_filename="old.csv",
+                new_filename="new.csv",
+            )
+
+        data = result["json"]
+        summary = data["executive_summary"]
+        self.assertEqual(summary["selected_activities"], 2)
+        self.assertEqual(summary["trade_counts"]["ALL"], 2)
+        self.assertEqual(summary["trade_counts"]["EL"], 1)
+        self.assertEqual(summary["trade_counts"]["VVS"], 1)
+        self.assertIn("Building A", data["filter_options"]["areas"])
+        self.assertIn("Level 02", data["filter_options"]["floors"])
+        self.assertIn("Phase 1", data["filter_options"]["phases"])
+
 
 if __name__ == "__main__":
     unittest.main()
