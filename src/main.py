@@ -1,3 +1,7 @@
+from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -85,6 +89,122 @@ PROGRESS_STAGES = {
     }
 }
 
+PROGRESS_STAGES_V3 = {
+    "received": {
+        "step": 1,
+        "total_steps": 4,
+        "en": "Schedules received — initializing v3 analysis...",
+    },
+    "extracting": {
+        "step": 2,
+        "total_steps": 4,
+        "en": "Filtering scope and extracting schedule facts...",
+    },
+    "analyzing": {
+        "step": 3,
+        "total_steps": 4,
+        "en": [
+            "Identifying changes between schedules...",
+            "Finding activities that should have started...",
+            "Calculating progress vs expected...",
+            "Detecting stage mismatches...",
+            "Assessing point of no return...",
+            "Writing action recommendations...",
+        ],
+    },
+    "formatting": {
+        "step": 4,
+        "total_steps": 4,
+        "en": "Rendering decision dashboard...",
+    },
+    "complete": {
+        "step": 4,
+        "total_steps": 4,
+        "en": "Your v3 dashboard is ready!",
+    },
+    "error": {
+        "step": -1,
+        "total_steps": 4,
+        "en": "Analysis failed. Please try again.",
+    },
+}
+
+PROGRESS_STAGES_V4 = {
+    "received": {
+        "step": 1,
+        "total_steps": 4,
+        "en": "Schedules received — initialising v4 dashboard...",
+    },
+    "extracting": {
+        "step": 2,
+        "total_steps": 4,
+        "en": "Filtering scope and computing health metrics...",
+    },
+    "analyzing": {
+        "step": 3,
+        "total_steps": 4,
+        "en": [
+            "Identifying changes between schedules...",
+            "Computing progress vs expected for all activities...",
+            "Assessing point of no return...",
+            "Ranking top issues by deviation...",
+            "Building action recommendations...",
+            "Generating AI insights...",
+        ],
+    },
+    "formatting": {
+        "step": 4,
+        "total_steps": 4,
+        "en": "Building Project Health Dashboard...",
+    },
+    "complete": {
+        "step": 4,
+        "total_steps": 4,
+        "en": "Your v4 dashboard is ready!",
+    },
+    "error": {
+        "step": -1,
+        "total_steps": 4,
+        "en": "Analysis failed. Please try again.",
+    },
+}
+
+PROGRESS_STAGES_V2 = {
+    "received": {
+        "step": 1,
+        "total_steps": 4,
+        "en": "Schedules received — initializing comparison...",
+    },
+    "extracting": {
+        "step": 2,
+        "total_steps": 4,
+        "en": "Filtering scope and extracting facts...",
+    },
+    "analyzing": {
+        "step": 3,
+        "total_steps": 4,
+        "en": [
+            "Identifying deltas between schedules...",
+            "Checking progress status vs schedule...",
+            "Calculating progress variance...",
+        ],
+    },
+    "formatting": {
+        "step": 4,
+        "total_steps": 4,
+        "en": "Rendering dashboard...",
+    },
+    "complete": {
+        "step": 4,
+        "total_steps": 4,
+        "en": "Your comparison dashboard is ready!",
+    },
+    "error": {
+        "step": -1,
+        "total_steps": 4,
+        "en": "Something went wrong during the comparison.",
+    }
+}
 
 def _update_progress(analysis_id: str, stage: str, language: str = "en", detail: str = None):
     if stage not in PROGRESS_STAGES:
@@ -122,6 +242,115 @@ def _update_progress(analysis_id: str, stage: str, language: str = "en", detail:
                 "_language": language
             }
 
+def _update_progress_v3(analysis_id: str, stage: str, detail: str = None):
+    if stage not in PROGRESS_STAGES_V3:
+        return
+    stage_info = PROGRESS_STAGES_V3[stage]
+    msg_value = stage_info["en"]
+    if isinstance(msg_value, list):
+        with _progress_lock:
+            prev = _predictive_progress.get(analysis_id)
+            prev_idx = prev.get("_msg_idx", -1) if prev and prev.get("stage") == stage else -1
+            next_idx = (prev_idx + 1) % len(msg_value)
+            msg = msg_value[next_idx]
+            _predictive_progress[analysis_id] = {
+                "analysis_id": analysis_id,
+                "stage": stage,
+                "step": stage_info["step"],
+                "total_steps": stage_info["total_steps"],
+                "message": msg,
+                "detail": detail,
+                "timestamp": time.time(),
+                "_msg_idx": next_idx,
+                "_version": "v3",
+            }
+    else:
+        with _progress_lock:
+            _predictive_progress[analysis_id] = {
+                "analysis_id": analysis_id,
+                "stage": stage,
+                "step": stage_info["step"],
+                "total_steps": stage_info["total_steps"],
+                "message": msg_value,
+                "detail": detail,
+                "timestamp": time.time(),
+                "_version": "v3",
+            }
+
+
+def _update_progress_v4(analysis_id: str, stage: str, detail: str = None):
+    if stage not in PROGRESS_STAGES_V4:
+        return
+    stage_info = PROGRESS_STAGES_V4[stage]
+    msg_value = stage_info["en"]
+    if isinstance(msg_value, list):
+        with _progress_lock:
+            prev = _predictive_progress.get(analysis_id)
+            prev_idx = prev.get("_msg_idx", -1) if prev and prev.get("stage") == stage else -1
+            next_idx = (prev_idx + 1) % len(msg_value)
+            msg = msg_value[next_idx]
+            _predictive_progress[analysis_id] = {
+                "analysis_id": analysis_id,
+                "stage": stage,
+                "step": stage_info["step"],
+                "total_steps": stage_info["total_steps"],
+                "message": msg,
+                "detail": detail,
+                "timestamp": time.time(),
+                "_msg_idx": next_idx,
+                "_version": "v4",
+            }
+    else:
+        with _progress_lock:
+            _predictive_progress[analysis_id] = {
+                "analysis_id": analysis_id,
+                "stage": stage,
+                "step": stage_info["step"],
+                "total_steps": stage_info["total_steps"],
+                "message": msg_value,
+                "detail": detail,
+                "timestamp": time.time(),
+                "_version": "v4",
+            }
+
+
+def _update_progress_v2(analysis_id: str, stage: str, language: str = "en", detail: str = None):
+    if stage not in PROGRESS_STAGES_V2:
+        return
+    stage_info = PROGRESS_STAGES_V2[stage]
+    msg_value = stage_info.get(language, stage_info["en"])
+    if isinstance(msg_value, list):
+        with _progress_lock:
+            prev = _predictive_progress.get(analysis_id)
+            prev_idx = prev.get("_msg_idx", -1) if prev and prev.get("stage") == stage else -1
+            next_idx = (prev_idx + 1) % len(msg_value)
+            msg = msg_value[next_idx]
+            _predictive_progress[analysis_id] = {
+                "analysis_id": analysis_id,
+                "stage": stage,
+                "step": stage_info["step"],
+                "total_steps": stage_info["total_steps"],
+                "message": msg,
+                "detail": detail,
+                "timestamp": time.time(),
+                "_msg_idx": next_idx,
+                "_language": language
+            }
+    else:
+        msg = msg_value
+        with _progress_lock:
+            _predictive_progress[analysis_id] = {
+                "analysis_id": analysis_id,
+                "stage": stage,
+                "step": stage_info["step"],
+                "total_steps": stage_info["total_steps"],
+                "message": msg,
+                "detail": detail,
+                "timestamp": time.time(),
+                "_language": language
+            }
+
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s | %(levelname)s | %(message)s',
@@ -135,30 +364,22 @@ from src.predictive_agent import predictive_agent
 from src.database import init_pgvector_extension, create_chat_memory_table, save_session_metadata, get_session_metadata
 from src.html_formatter import format_response_as_html
 from src.predictive_html_formatter import format_predictive_as_html
+from src.predictive_dashboard_formatter import format_predictive_as_dashboard_html
 from src.pdf_processor import process_pdf_binary, rows_to_compact_csv_chunks
 
-app = FastAPI(
-    title="RAG Agent SaaS",
-    description="Azure AI RAG Agent with Supabase pgvector - Upload PDFs and query with AI",
-    version="1.0.0"
-)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@asynccontextmanager
+async def lifespan(app):
+    # Start JVM for MPXJ (must happen after Gunicorn fork, never at import time)
+    from src.jvm_init import start_jvm_if_needed
+    start_jvm_if_needed()
 
-
-@app.on_event("startup")
-async def startup_event():
+    # Existing startup logic (DB init + Azure OCR credential check)
     try:
         init_pgvector_extension()
         create_chat_memory_table()
         print("Database initialized successfully")
-        
+
         from src.azure_ocr import AzureDocumentIntelligence
         is_valid, msg = AzureDocumentIntelligence.check_credentials()
         if is_valid:
@@ -168,6 +389,24 @@ async def startup_event():
     except Exception as e:
         print(f"Startup error: {e}")
         raise
+
+    yield
+
+
+app = FastAPI(
+    title="RAG Agent SaaS",
+    description="Azure AI RAG Agent with Supabase pgvector - Upload PDFs and query with AI",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
@@ -194,12 +433,14 @@ async def upload_schedules(
     old_session_id: str = Form(...),
     new_session_id: str = Form(...),
     old_schedule: UploadFile = File(...),
-    new_schedule: UploadFile = File(...)
+    new_schedule: UploadFile = File(...),
+    data_format: str = Form("raw"),
 ):
     logger.info(f"=== UPLOAD REQUEST ===")
     logger.info(f"Session: {session_id}")
     logger.info(f"Old schedule: {old_schedule.filename} -> table: {old_session_id}")
     logger.info(f"New schedule: {new_schedule.filename} -> table: {new_session_id}")
+    logger.info(f"Data format: {data_format}")
     
     old_filename = old_schedule.filename or "old_schedule.pdf"
     new_filename = new_schedule.filename or "new_schedule.pdf"
@@ -240,18 +481,23 @@ async def upload_schedules(
 
                 def process_file(file_key, filename, file_bytes, table_id):
                     progress_cb(file_key, "ocr", f"Extracting content from {filename}...", 10)
-                    if _is_csv(filename):
-                        logger.info(f"  Processing CSV file: {filename}")
-                        chunks = _parse_csv_to_chunks(file_bytes, filename)
-                    elif _is_mpp(filename):
-                        logger.info(f"  Processing MPP file: {filename}")
-                        chunks = _process_mpp_to_chunks(file_bytes, filename)
-                    elif _is_mspdi(filename):
-                        logger.info(f"  Processing MS Project XML file: {filename}")
-                        chunks = _process_mspdi_to_chunks(file_bytes, filename)
+                    if data_format == "nusf":
+                        logger.info(f"  Processing {filename} through NUSF pipeline")
+                        progress_cb(file_key, "pipeline", f"Normalizing {filename} to NUSF...", 20)
+                        chunks = _process_file_to_nusf_chunks(file_bytes, filename)
                     else:
-                        logger.info(f"  Processing PDF file: {filename}")
-                        chunks = process_pdf_binary(file_bytes, filename)
+                        if _is_csv(filename):
+                            logger.info(f"  Processing CSV file: {filename}")
+                            chunks = _parse_csv_to_chunks(file_bytes, filename)
+                        elif _is_mpp(filename):
+                            logger.info(f"  Processing MPP file: {filename}")
+                            chunks = _process_mpp_to_chunks(file_bytes, filename)
+                        elif _is_mspdi(filename):
+                            logger.info(f"  Processing MS Project XML file: {filename}")
+                            chunks = _process_mspdi_to_chunks(file_bytes, filename)
+                        else:
+                            logger.info(f"  Processing PDF file: {filename}")
+                            chunks = process_pdf_binary(file_bytes, filename)
                     result = vector_store_manager.create_store_from_chunks(
                         session_id, filename, chunks, table_id,
                         progress_callback=lambda step, detail, pct: progress_cb(file_key, step, detail, pct)
@@ -270,7 +516,14 @@ async def upload_schedules(
                 
                 old_result, new_result = await asyncio.gather(old_future, new_future)
                 
-                save_session_metadata(session_id, old_filename, new_filename, old_session_id, new_session_id)
+                save_session_metadata(
+                    session_id,
+                    old_filename,
+                    new_filename,
+                    old_session_id,
+                    new_session_id,
+                    data_format=data_format,
+                )
                 
                 elapsed = time.time() - _upload_progress[upload_id]["started_at"]
                 _upload_progress[upload_id].update({
@@ -590,6 +843,39 @@ def _process_mspdi_to_chunks(file_bytes: bytes, filename: str) -> list[dict]:
     logger.info(f"  [MSPDI] {filename}: {len(headers)} columns, {len(rows)} data rows")
     return rows_to_compact_csv_chunks(headers, rows, filename)
 
+
+def _process_file_to_nusf_chunks(file_bytes: bytes, filename: str) -> list[dict]:
+    """
+    Run the universal ingestion pipeline and require a valid NUSF output.
+    This is used when the caller explicitly requests NUSF mode for downstream
+    comparison/dashboard flows.
+    """
+    from ingestion.pipeline import IngestionPipeline, PipelineError
+    from ingestion.normalization.engine import to_nusf_chunks
+
+    pipeline = IngestionPipeline()
+    try:
+        schedule_obj, _raw_chunks = pipeline.run_from_bytes(file_bytes, filename)
+    except PipelineError as exc:
+        raise ValueError(f"NUSF generation failed for '{filename}': {exc}") from exc
+
+    if not schedule_obj.activities:
+        raise ValueError(
+            f"NUSF generation failed for '{filename}': normalization produced 0 activities"
+        )
+
+    chunks = to_nusf_chunks(schedule_obj)
+    if not chunks:
+        raise ValueError(
+            f"NUSF generation failed for '{filename}': no NUSF chunks were produced"
+        )
+
+    logger.info(
+        f"  [NUSF] {filename}: {schedule_obj.metadata.total_activities} activities, "
+        f"{len(chunks)} chunk(s), quality={schedule_obj.metadata.parse_quality_score}"
+    )
+    return chunks
+
 def _detect_delimiter(sample: str) -> str:
     counts = {}
     for d in [";", ",", "\t", "|"]:
@@ -666,7 +952,8 @@ async def predictive_analysis(
     schedule: UploadFile = File(...),
     language: str = Form("en"),
     format: str = Form("html"),
-    analysis_id: str = Form(None)
+    analysis_id: str = Form(None),
+    data_format: str = Form("raw"),
 ):
     start_time = time.time()
 
@@ -681,7 +968,7 @@ async def predictive_analysis(
     _update_progress(analysis_id, "received", language)
 
     logger.info(f"=== PREDICTIVE REQUEST [{analysis_id}] ===")
-    logger.info(f"Schedule: {filename} | Language: {language} | Reference date: {reference_date or 'not found in filename'}")
+    logger.info(f"Schedule: {filename} | Language: {language} | Format: {data_format} | Reference date: {reference_date or 'not found in filename'}")
 
     if not _is_allowed_file(filename):
         _update_progress(analysis_id, "error", language)
@@ -700,7 +987,17 @@ async def predictive_analysis(
         is_mpp_file = _is_mpp(filename)
         is_mspdi_file = _is_mspdi(filename)
 
-        if is_csv_file:
+        if data_format == "nusf":
+            logger.info(f"  Running NUSF normalization pipeline...")
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: _process_file_to_nusf_chunks(file_bytes, filename)
+            )
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            parse_elapsed = time.time() - start_time
+            logger.info(f"  NUSF pipeline complete ({parse_elapsed:.1f}s): {len(chunks)} chunks, ~{row_count} rows")
+            context = _build_predictive_context(chunks, filename_clean)
+        elif is_csv_file:
             logger.info(f"  Parsing CSV directly (no OCR needed)...")
             context = _build_predictive_context_from_csv(file_bytes, filename_clean)
             row_count = context.count("\n")
@@ -755,7 +1052,8 @@ async def predictive_analysis(
                 user_query="Execute full two-phase analysis: detect ALL delayed activities (Phase 1) and produce decision support with root cause analysis, priority ranking, action recommendations, and resource assessment (Phase 2)",
                 language=language,
                 schedule_filename=filename_clean,
-                reference_date=reference_date
+                reference_date=reference_date,
+                data_format=data_format,
             )
         )
 
@@ -930,6 +1228,147 @@ async def predictive_analysis(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/predictive/dashboard")
+async def predictive_dashboard(
+    schedule: UploadFile = File(...),
+    language: str = Form("en"),
+    format: str = Form("html"),
+    analysis_id: str = Form(None),
+    data_format: str = Form("raw"),
+):
+    """Risk dashboard endpoint for projects in early execution or planning phase.
+
+    Returns an interactive HTML dashboard showing which activities are behind
+    schedule based on today's date, where the critical risks are, and what
+    needs immediate attention. Filterable by trade, area, and task type.
+    Pass data_format=nusf to run the NUSF normalization pipeline first,
+    which gives the LLM pre-normalized columns and a NUSF-tuned prompt.
+    """
+    start_time = time.time()
+
+    if not analysis_id:
+        analysis_id = str(uuid.uuid4())[:12]
+
+    filename = schedule.filename or "schedule.pdf"
+    filename_clean = (filename
+                      .replace(".pdf", "").replace(".PDF", "")
+                      .replace(".csv", "").replace(".CSV", "")
+                      .replace(".xml", "").replace(".XML", "")
+                      .replace(".mpp", "").replace(".MPP", ""))
+
+    reference_date = _extract_reference_date(filename)
+
+    _update_progress(analysis_id, "received", language)
+
+    logger.info(f"=== PREDICTIVE DASHBOARD REQUEST [{analysis_id}] ===")
+    logger.info(f"Schedule: {filename} | Language: {language} | Format: {data_format} | Ref date: {reference_date or 'not in filename'}")
+
+    if not _is_allowed_file(filename):
+        _update_progress(analysis_id, "error", language)
+        _schedule_progress_cleanup(analysis_id, delay=60)
+        raise HTTPException(status_code=400, detail="Only PDF, CSV, Excel (.xlsx), Microsoft Project (.mpp), and MS Project XML (.xml) files are accepted")
+
+    try:
+        file_bytes = await schedule.read()
+        logger.info(f"  File read: {len(file_bytes)} bytes")
+
+        _update_progress(analysis_id, "reading", language, f"{len(file_bytes) // 1024} KB")
+
+        loop = asyncio.get_event_loop()
+        is_csv_file = _is_csv(filename)
+        is_mpp_file = _is_mpp(filename)
+        is_mspdi_file = _is_mspdi(filename)
+
+        if data_format == "nusf":
+            logger.info(f"  Running NUSF normalization pipeline...")
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: _process_file_to_nusf_chunks(file_bytes, filename)
+            )
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            parse_elapsed = time.time() - start_time
+            logger.info(f"  NUSF pipeline complete ({parse_elapsed:.1f}s): {len(chunks)} chunks, ~{row_count} rows")
+            context = _build_predictive_context(chunks, filename_clean)
+        elif is_csv_file:
+            context = _build_predictive_context_from_csv(file_bytes, filename_clean)
+            row_count = context.count("\n")
+        elif is_mpp_file:
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: _process_mpp_to_chunks(file_bytes, filename)
+            )
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            context = _build_predictive_context(chunks, filename_clean)
+        elif is_mspdi_file:
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: _process_mspdi_to_chunks(file_bytes, filename)
+            )
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            context = _build_predictive_context(chunks, filename_clean)
+        else:
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: process_pdf_binary(file_bytes, filename)
+            )
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            context = _build_predictive_context(chunks, filename_clean)
+
+        _update_progress(analysis_id, "extracting", language, f"{row_count} activities")
+        _update_progress(analysis_id, "analyzing", language, f"{row_count} activities")
+
+        logger.info(f"  Running Nova Insight analysis for dashboard...")
+        predictive_result = await loop.run_in_executor(
+            _query_executor,
+            lambda: predictive_agent.analyze(
+                context=context,
+                user_query="Execute full two-phase analysis: detect ALL delayed activities (Phase 1) and produce decision support with root cause analysis, priority ranking, action recommendations, and resource assessment (Phase 2)",
+                language=language,
+                schedule_filename=filename_clean,
+                reference_date=reference_date,
+                data_format=data_format,
+            )
+        )
+
+        predictive_json = predictive_result.get("predictive_json", None)
+        predictive_status = predictive_result.get("status", "error")
+        predictive_model = predictive_result.get("model", "")
+
+        _update_progress(analysis_id, "formatting", language)
+
+        if format == "html" and predictive_json:
+            response_text = format_predictive_as_dashboard_html(predictive_json, language)
+        elif format != "html" and predictive_json:
+            import json as _json
+            response_text = _json.dumps(predictive_json, ensure_ascii=False)
+        else:
+            response_text = predictive_result.get("predictive_insights", "")
+
+        elapsed = time.time() - start_time
+        logger.info(f"  Dashboard response: {len(response_text)} chars, status: {predictive_status}")
+        logger.info(f"=== PREDICTIVE DASHBOARD COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
+
+        _update_progress(analysis_id, "complete", language)
+        _schedule_progress_cleanup(analysis_id)
+
+        return {
+            "analysis_id": analysis_id,
+            "response": response_text,
+            "predictive_status": predictive_status,
+            "predictive_model": predictive_model,
+            "filename": filename,
+            "reference_date": reference_date,
+            "format": format,
+            "processing_time_seconds": round(elapsed, 1),
+        }
+
+    except Exception as e:
+        logger.error(f"Predictive dashboard failed: {e}")
+        _update_progress(analysis_id, "error", language, str(e))
+        _schedule_progress_cleanup(analysis_id, delay=120)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def _schedule_progress_cleanup(analysis_id: str, delay: int = 300):
     def cleanup():
         time.sleep(delay)
@@ -950,13 +1389,429 @@ async def get_predictive_progress(analysis_id: str):
         )
 
     if progress.get("stage") == "analyzing":
-        lang = progress.get("_language", "en")
-        _update_progress(analysis_id, "analyzing", lang, progress.get("detail"))
+        version = progress.get("_version", "v1")
+        if version == "v4":
+            _update_progress_v4(analysis_id, "analyzing", progress.get("detail"))
+        elif version == "v3":
+            _update_progress_v3(analysis_id, "analyzing", progress.get("detail"))
+        elif version == "v2":
+            _update_progress_v2(analysis_id, "analyzing", "en", progress.get("detail"))
+        else:
+            lang = progress.get("_language", "en")
+            _update_progress(analysis_id, "analyzing", lang, progress.get("detail"))
         with _progress_lock:
             progress = _predictive_progress.get(analysis_id, progress)
 
     resp = {k: v for k, v in progress.items() if not k.startswith("_")}
     return resp
+
+
+@app.post("/v2/compare")
+async def compare_v2(
+    session_id: str = Form(...),
+    old_session_id: str = Form(...),
+    new_session_id: str = Form(...),
+    scope_filter: str = Form(None),
+    reference_date: str = Form(None),
+    language: str = Form("en"),
+    format: str = Form("html"),
+    analysis_id: str = Form(None)
+):
+    if not analysis_id:
+        analysis_id = str(uuid.uuid4())[:12]
+        
+    start_time = time.time()
+    logger.info(f"=== COMPARE V2 REQUEST [{analysis_id}] ===")
+    logger.info(f"Session: {session_id} | Old DB: {old_session_id} | New DB: {new_session_id}")
+    logger.info(f"Scope Filter: {scope_filter} | Reference Date: {reference_date}")
+    
+    _update_progress_v2(analysis_id, "received", language)
+    
+    try:
+        from src.experimental.compare_v2_agent import compare_v2_agent
+        from src.experimental.html_formatter_v2 import format_compare_v2_as_html
+        
+        session_meta = get_session_metadata(session_id)
+        old_filename = session_meta.get("old_filename", "Old Schedule").replace(".pdf", "")
+        new_filename = session_meta.get("new_filename", "New Schedule").replace(".pdf", "")
+        
+        _update_progress_v2(analysis_id, "extracting", language)
+        
+        loop = asyncio.get_event_loop()
+        
+        tables = [old_session_id, new_session_id]
+        
+        _update_progress_v2(analysis_id, "analyzing", language)
+        
+        result = await loop.run_in_executor(
+            _query_executor,
+            lambda: compare_v2_agent.analyze(
+                scope_filter=scope_filter or "All activities",
+                reference_date=reference_date or "Unknown",
+                table_names=tables,
+                session_id=session_id,
+                old_filename=old_filename,
+                new_filename=new_filename
+            )
+        )
+        
+        json_data = result.get("json", {})
+        
+        _update_progress_v2(analysis_id, "formatting", language)
+        
+        if format == "html":
+            response_text = format_compare_v2_as_html(json_data, language)
+        else:
+            response_text = json.dumps(json_data)
+            
+        _update_progress_v2(analysis_id, "complete", language)
+        # We reuse the predictive progress cleanup so it removes our state after UI gets it
+        _schedule_progress_cleanup(analysis_id)
+        
+        elapsed = time.time() - start_time
+        logger.info(f"=== COMPARE V2 COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
+        
+        return {
+            "analysis_id": analysis_id,
+            "response": response_text,
+            "json_data": json_data,
+            "context_chunks": result.get("context_chunks", 0),
+            "format": format
+        }
+    except Exception as e:
+        logger.error(f"Compare V2 failed: {e}")
+        _update_progress_v2(analysis_id, "error", language, str(e))
+        _schedule_progress_cleanup(analysis_id, delay=120)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@app.post("/v3/compare")
+async def compare_v3(
+    session_id: str = Form(...),
+    old_session_id: str = Form(...),
+    new_session_id: str = Form(...),
+    scope_filter: str = Form(None),
+    reference_date: str = Form(None),
+    language: str = Form("en"),
+    format: str = Form("html"),
+    analysis_id: str = Form(None),
+):
+    import json as _json
+    if not analysis_id:
+        analysis_id = str(uuid.uuid4())[:12]
+
+    start_time = time.time()
+    logger.info(f"=== COMPARE V3 REQUEST [{analysis_id}] ===")
+    logger.info(f"Session: {session_id} | Old DB: {old_session_id} | New DB: {new_session_id}")
+    logger.info(f"Scope Filter: {scope_filter} | Reference Date: {reference_date}")
+
+    _update_progress_v3(analysis_id, "received")
+
+    try:
+        from src.experimental.compare_v3_agent import compare_v3_agent
+        from src.experimental.html_formatter_v3 import format_compare_v3_as_html
+
+        session_meta = get_session_metadata(session_id)
+        old_filename = session_meta.get("old_filename", "Old Schedule").replace(".pdf", "")
+        new_filename = session_meta.get("new_filename", "New Schedule").replace(".pdf", "")
+
+        _update_progress_v3(analysis_id, "extracting")
+
+        loop = asyncio.get_event_loop()
+        tables = [old_session_id, new_session_id]
+
+        _update_progress_v3(analysis_id, "analyzing")
+
+        result = await loop.run_in_executor(
+            _query_executor,
+            lambda: compare_v3_agent.analyze(
+                scope_filter=scope_filter or "All activities",
+                reference_date=reference_date or "Unknown",
+                table_names=tables,
+                session_id=session_id,
+                old_filename=old_filename,
+                new_filename=new_filename,
+            ),
+        )
+
+        json_data = result.get("json", {})
+
+        _update_progress_v3(analysis_id, "formatting")
+
+        if format == "html":
+            response_text = format_compare_v3_as_html(json_data, language)
+        else:
+            response_text = _json.dumps(json_data, ensure_ascii=False)
+
+        _update_progress_v3(analysis_id, "complete")
+        _schedule_progress_cleanup(analysis_id)
+
+        elapsed = time.time() - start_time
+        logger.info(f"=== COMPARE V3 COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
+
+        return {
+            "analysis_id": analysis_id,
+            "response": response_text,
+            "json_data": json_data,
+            "context_chunks": result.get("context_chunks", 0),
+            "format": format,
+        }
+
+    except Exception as e:
+        logger.error(f"Compare V3 failed: {e}")
+        _update_progress_v3(analysis_id, "error", str(e))
+        _schedule_progress_cleanup(analysis_id, delay=120)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v4/compare")
+async def compare_v4(
+    session_id: str = Form(...),
+    old_session_id: str = Form(...),
+    new_session_id: str = Form(...),
+    scope_filter: str = Form(None),
+    reference_date: str = Form(None),
+    language: str = Form("en"),
+    format: str = Form("html"),
+    analysis_id: str = Form(None),
+):
+    import json as _json
+    if not analysis_id:
+        analysis_id = str(uuid.uuid4())[:12]
+
+    start_time = time.time()
+    logger.info(f"=== COMPARE V4 REQUEST [{analysis_id}] ===")
+    logger.info(f"Session: {session_id} | Old DB: {old_session_id} | New DB: {new_session_id}")
+    logger.info(f"Scope Filter: {scope_filter} | Reference Date: {reference_date}")
+
+    _update_progress_v4(analysis_id, "received")
+
+    try:
+        from src.experimental.compare_v3_agent import compare_v3_agent
+        from src.experimental.html_formatter_v4 import format_compare_v4_as_html
+
+        session_meta = get_session_metadata(session_id)
+        old_filename = session_meta.get("old_filename", "Old Schedule").replace(".pdf", "")
+        new_filename = session_meta.get("new_filename", "New Schedule").replace(".pdf", "")
+        effective_data_format = data_format or session_meta.get("data_format") or "raw"
+        require_nusf = effective_data_format == "nusf"
+        logger.info(f"V5 compare data format: {effective_data_format}")
+
+        _update_progress_v4(analysis_id, "extracting")
+
+        loop = asyncio.get_event_loop()
+        tables = [old_session_id, new_session_id]
+
+        _update_progress_v4(analysis_id, "analyzing")
+
+        result = await loop.run_in_executor(
+            _query_executor,
+            lambda: compare_v3_agent.analyze(
+                scope_filter=scope_filter or "All activities",
+                reference_date=reference_date or "Unknown",
+                table_names=tables,
+                session_id=session_id,
+                old_filename=old_filename,
+                new_filename=new_filename,
+            ),
+        )
+
+        json_data = result.get("json", {})
+
+        _update_progress_v4(analysis_id, "formatting")
+
+        if format == "html":
+            response_text = format_compare_v4_as_html(json_data, language)
+        else:
+            response_text = _json.dumps(json_data, ensure_ascii=False)
+
+        _update_progress_v4(analysis_id, "complete")
+        _schedule_progress_cleanup(analysis_id)
+
+        elapsed = time.time() - start_time
+        logger.info(f"=== COMPARE V4 COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
+
+        return {
+            "analysis_id": analysis_id,
+            "response": response_text,
+            "json_data": json_data,
+            "context_chunks": result.get("context_chunks", 0),
+            "format": format,
+        }
+
+    except Exception as e:
+        logger.error(f"Compare V4 failed: {e}")
+        _update_progress_v4(analysis_id, "error", str(e))
+        _schedule_progress_cleanup(analysis_id, delay=120)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v5/compare")
+async def compare_v5(
+    session_id: str = Form(...),
+    old_session_id: str = Form(...),
+    new_session_id: str = Form(...),
+    scope_filter: str = Form(None),
+    reference_date: str = Form(None),
+    language: str = Form("en"),
+    format: str = Form("html"),
+    analysis_id: str = Form(None),
+    data_format: str = Form(None),
+):
+    import json as _json
+    if not analysis_id:
+        analysis_id = str(uuid.uuid4())[:12]
+
+    start_time = time.time()
+    logger.info(f"=== COMPARE V5 REQUEST [{analysis_id}] ===")
+    logger.info(f"Session: {session_id} | Old DB: {old_session_id} | New DB: {new_session_id}")
+    logger.info(f"Scope Filter: {scope_filter} | Reference Date: {reference_date}")
+
+    _update_progress_v4(analysis_id, "received")
+
+    try:
+        from src.experimental.compare_v4_agent import compare_v4_agent
+        from src.experimental.html_formatter_v5 import format_compare_v5_as_html
+
+        session_meta = get_session_metadata(session_id)
+        old_filename = session_meta.get("old_filename", "Old Schedule").replace(".pdf", "")
+        new_filename = session_meta.get("new_filename", "New Schedule").replace(".pdf", "")
+
+        _update_progress_v4(analysis_id, "extracting")
+
+        loop = asyncio.get_event_loop()
+        tables = [old_session_id, new_session_id]
+
+        _update_progress_v4(analysis_id, "analyzing")
+
+        result = await loop.run_in_executor(
+            _query_executor,
+            lambda: compare_v4_agent.analyze(
+                scope_filter=scope_filter or "All activities",
+                reference_date=reference_date or "Unknown",
+                table_names=tables,
+                session_id=session_id,
+                old_filename=old_filename,
+                new_filename=new_filename,
+                require_nusf=require_nusf,
+                language=language,
+            ),
+        )
+
+        json_data = result.get("json", {})
+
+        _update_progress_v4(analysis_id, "formatting")
+
+        if format == "html":
+            response_text = format_compare_v5_as_html(json_data, language)
+        else:
+            response_text = _json.dumps(json_data, ensure_ascii=False)
+
+        _update_progress_v4(analysis_id, "complete")
+        _schedule_progress_cleanup(analysis_id)
+
+        elapsed = time.time() - start_time
+        logger.info(f"=== COMPARE V5 COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
+
+        return {
+            "analysis_id": analysis_id,
+            "response": response_text,
+            "json_data": json_data,
+            "context_chunks": result.get("context_chunks", 0),
+            "format": format,
+        }
+
+    except Exception as e:
+        logger.error(f"Compare V5 failed: {e}")
+        _update_progress_v4(analysis_id, "error", str(e))
+        _schedule_progress_cleanup(analysis_id, delay=120)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v5-graph/compare")
+async def compare_v5_graph(
+    session_id: str = Form(...),
+    old_session_id: str = Form(...),
+    new_session_id: str = Form(...),
+    scope_filter: str = Form(None),
+    reference_date: str = Form(None),
+    language: str = Form("en"),
+    format: str = Form("html"),
+    analysis_id: str = Form(None),
+    data_format: str = Form(None),
+):
+    import json as _json
+    if not analysis_id:
+        analysis_id = str(uuid.uuid4())[:12]
+
+    start_time = time.time()
+    logger.info(f"=== COMPARE V5 GRAPH REQUEST [{analysis_id}] ===")
+    logger.info(f"Session: {session_id} | Old DB: {old_session_id} | New DB: {new_session_id}")
+    logger.info(f"Scope Filter: {scope_filter} | Reference Date: {reference_date}")
+
+    _update_progress_v4(analysis_id, "received")
+
+    try:
+        from src.experimental.compare_v5_graph_agent import compare_v5_graph_agent
+        from src.experimental.html_formatter_v5_graph import format_compare_v5_graph_as_html
+
+        session_meta = get_session_metadata(session_id)
+        old_filename = session_meta.get("old_filename", "Old Schedule").replace(".pdf", "")
+        new_filename = session_meta.get("new_filename", "New Schedule").replace(".pdf", "")
+        effective_data_format = data_format or session_meta.get("data_format") or "raw"
+        require_nusf = effective_data_format == "nusf"
+        logger.info(f"V5 graph compare data format: {effective_data_format}")
+
+        _update_progress_v4(analysis_id, "extracting")
+
+        loop = asyncio.get_event_loop()
+        tables = [old_session_id, new_session_id]
+
+        _update_progress_v4(analysis_id, "analyzing")
+
+        result = await loop.run_in_executor(
+            _query_executor,
+            lambda: compare_v5_graph_agent.analyze(
+                scope_filter=scope_filter or "All activities",
+                reference_date=reference_date or "Unknown",
+                table_names=tables,
+                session_id=session_id,
+                old_filename=old_filename,
+                new_filename=new_filename,
+                require_nusf=require_nusf,
+                language=language,
+            ),
+        )
+
+        json_data = result.get("json", {})
+
+        _update_progress_v4(analysis_id, "formatting")
+
+        if format == "html":
+            response_text = format_compare_v5_graph_as_html(json_data, language)
+        else:
+            response_text = _json.dumps(json_data, ensure_ascii=False)
+
+        _update_progress_v4(analysis_id, "complete")
+        _schedule_progress_cleanup(analysis_id)
+
+        elapsed = time.time() - start_time
+        logger.info(f"=== COMPARE V5 GRAPH COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
+
+        return {
+            "analysis_id": analysis_id,
+            "response": response_text,
+            "json_data": json_data,
+            "context_chunks": result.get("context_chunks", 0),
+            "format": format,
+        }
+
+    except Exception as e:
+        logger.error(f"Compare V5 Graph failed: {e}")
+        _update_progress_v4(analysis_id, "error", str(e))
+        _schedule_progress_cleanup(analysis_id, delay=120)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── NUSF v2 Routes ───────────────────────────────────────────────────────────
