@@ -22,7 +22,7 @@ _SYSTEM_PROMPT = (
     "map each of these target fields to the most semantically matching raw header.\n\n"
     "Target fields to map:\n"
     "  source_id, name, planned_start, planned_finish, duration, percent_complete, "
-    "predecessors, successors, discipline, area, wbs_code\n\n"
+    "predecessors, successors, discipline, area, floor, phase, wbs_code, critical_flag, total_float\n\n"
     "Rules:\n"
     "- Only map a target field if you are confident (>80%) in the match.\n"
     "- If no good match exists for a field, omit it from the response.\n"

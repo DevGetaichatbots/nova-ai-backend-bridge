@@ -321,7 +321,14 @@ async def v2_upload_schedules(
             new_f = loop.run_in_executor(_executor, lambda: _process_one("new_schedule", new_filename, new_bytes, new_session_id))
 
             old_result, new_result = await asyncio.gather(old_f, new_f)
-            deps.save_session_metadata(session_id, old_filename, new_filename, old_session_id, new_session_id)
+            deps.save_session_metadata(
+                session_id,
+                old_filename,
+                new_filename,
+                old_session_id,
+                new_session_id,
+                data_format="nusf",
+            )
 
             elapsed = time.time() - _v2_upload_progress[upload_id]["started_at"]
             with _progress_lock:

@@ -1,0 +1,23 @@
+# Generated from pyproject.toml dependencies
+# Run `uv export --no-hashes > requirements.txt` on Replit to get pinned versions
+fastapi>=0.128.0
+gunicorn>=25.0.1
+jpype1>=1.7.1
+langchain>=1.2.7
+langchain-community>=0.4.1
+langchain-openai>=1.1.7
+langchain-text-splitters>=1.1.0
+mpxj>=16.2.0
+openai>=2.16.0
+openpyxl>=3.1.0
+pgvector>=0.4.2
+playwright>=1.49.0
+psycopg2-binary>=2.9.11
+pydantic>=2.12.5
+pydantic-settings>=2.0.0
+python-dotenv>=1.2.1
+python-multipart>=0.0.22
+requests>=2.32.5
+supabase>=2.27.2
+tiktoken>=0.7.0
+uvicorn[standard]>=0.40.0

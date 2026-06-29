@@ -121,6 +121,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.json
 .venv
 env/
 venv/
@@ -162,3 +163,9 @@ cython_debug/
 # Project-specific
 attached_assets/
 analysis_debug.txt
+
+# Test / experimental files
+tests/
+test_outputs/
+scratch/
+src/experimental/

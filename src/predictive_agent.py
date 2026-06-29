@@ -38,11 +38,11 @@ NOVA_INSIGHT_SCHEMA = {
                 "properties": {
                     "what_will_happen": {
                         "type": "string",
-                        "description": "One concrete sentence starting with 'If no action is taken, ...' — state the expected total delay window and the primary cause. Example: 'If no action is taken, your project is expected to be delayed by 4–8 months due to unresolved coordination and design dependencies.'"
+                        "description": "When delayed_count > 0: ONE concrete sentence starting with 'If no action is taken, ...' — state the expected total delay window and the primary cause. Example: 'If no action is taken, your project is expected to be delayed by 4–8 months due to unresolved coordination and design dependencies.' When delayed_count = 0 (no confirmed delays, only structural changes): do NOT fabricate a delay window. Instead describe the structural risk: 'Large-scale restructuring introduces elevated coordination risk — [N] tasks added and [M] removed across [disciplines] — validation of new dependency links is required before schedule impact can be confirmed.'"
                     },
                     "estimated_delay_impact": {
                         "type": "string",
-                        "description": "Concise delay estimate derived from most_overdue_days and cascade risk. Format: '+N weeks' or '+N–M months'. Examples: '+6 weeks', '+3–5 months', '+8–12 weeks'. NEVER vague — always give a number range."
+                        "description": "When delayed_count > 0: Concise delay estimate derived from most_overdue_days and cascade risk. Format: '+N weeks' or '+N–M months'. Examples: '+6 weeks', '+3–5 months', '+8–12 weeks'. When delayed_count = 0: use 'Requires validation' — do NOT invent a delay number when no overdue activities exist."
                     },
                     "confidence_level": {
                         "type": "string",
@@ -804,9 +804,13 @@ After completing all four analysis phases, synthesise the findings into the two 
 ### predictive_snapshot
 Fill this AFTER the rest of the analysis is complete — it is a synthesis, not a speculation.
 
-- **what_will_happen**: Write exactly ONE sentence starting with "If no action is taken, ...". State the expected delay window (in weeks or months) AND the primary cause category. Use the most_overdue_days to derive the window: <30 days → "+2–4 weeks", 30–60 days → "+4–8 weeks", 60–90 days → "+2–3 months", 90–180 days → "+3–6 months", >180 days → "+6–12 months or more". Adjust upward if there are cascading root causes across multiple disciplines. NEVER write "significant delay" or "some delay" — always give a number range.
+- **what_will_happen**:
+  - **When delayed_count > 0**: Write exactly ONE sentence starting with "If no action is taken, ...". State the expected delay window (in weeks or months) AND the primary cause category. Use the most_overdue_days to derive the window: <30 days → "+2–4 weeks", 30–60 days → "+4–8 weeks", 60–90 days → "+2–3 months", 90–180 days → "+3–6 months", >180 days → "+6–12 months or more". Adjust upward if there are cascading root causes across multiple disciplines. NEVER write "significant delay" or "some delay" — always give a number range.
+  - **When delayed_count = 0** (no confirmed delays, structural changes only): Do NOT apply the delay formula above. Do NOT fabricate a delay estimate. Instead write: "Large-scale restructuring introduces elevated coordination risk — [N] tasks added and [M] removed — the schedule impact cannot be confirmed until your planner validates the new dependency links." Structural volume alone is NOT evidence of delay.
 
-- **estimated_delay_impact**: Short form of the delay window only. Format "+N weeks" or "+N–M months". Derived from the same logic as what_will_happen.
+- **estimated_delay_impact**:
+  - **When delayed_count > 0**: Short form of the delay window only. Format "+N weeks" or "+N–M months". Derived from the same logic as what_will_happen.
+  - **When delayed_count = 0**: Write "Requires validation" — do NOT derive a delay window from structural change volume alone.
 
 - **confidence_level**: Assign HIGH if: root_cause_count < delayed_count * 0.5 (good separation), most_overdue_days is concrete, and predecessor data is present. Assign MEDIUM if: root causes are inferred (no predecessor columns), or data quality is mixed. Assign LOW if: fewer than 5 delayed activities, unstructured format (week-based), or most task types could not be classified.
 

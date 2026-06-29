@@ -98,6 +98,22 @@ def _parse_iso_duration(s: str) -> str:
     return f"{days:.1f}d"
 
 
+def _parse_slack_to_days(s: str) -> str:
+    """
+    Convert MSPDI slack values to working days.
+
+    MSPDI slack fields are stored in tenths of minutes. 4800 tenths of
+    minutes = 480 minutes = 8 working hours = 1 working day.
+    """
+    if not s:
+        return ""
+    try:
+        days = float(str(s).strip()) / 4800.0
+        return f"{days:.1f}"
+    except (TypeError, ValueError):
+        return ""
+
+
 class MspdiExtractor(BaseExtractor):
     """
     Extracts schedule task data from MSPDI-format Microsoft Project XML files.
@@ -117,6 +133,8 @@ class MspdiExtractor(BaseExtractor):
         "WBS",
         "Forgænger-ID",
         "Ressourcer",
+        "Critical",
+        "TotalSlack",
     ]
 
     def extract(self, file_path: Path) -> Dict[str, Any]:
@@ -197,6 +215,8 @@ class MspdiExtractor(BaseExtractor):
                     self._predecessors_str(task_el, uid_to_id),
                     self._resources_str(task_el, uid_str, assignment_map,
                                         ansvar_field_id),
+                    _text(task_el, "Critical"),
+                    _parse_slack_to_days(_text(task_el, "TotalSlack")),
                 ]
                 rows.append(row)
             except Exception as exc:

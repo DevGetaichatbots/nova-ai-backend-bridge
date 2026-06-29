@@ -267,23 +267,37 @@ def create_chat_memory_table():
                     new_filename VARCHAR(500),
                     old_table_name VARCHAR(255),
                     new_table_name VARCHAR(255),
+                    data_format VARCHAR(20) DEFAULT 'raw',
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 );
 
                 CREATE INDEX IF NOT EXISTS session_metadata_idx
                 ON session_metadata(session_id);
             """)
+            cur.execute("""
+                ALTER TABLE session_metadata
+                ADD COLUMN IF NOT EXISTS data_format VARCHAR(20) DEFAULT 'raw'
+            """)
             conn.commit()
 
 
-def save_session_metadata(session_id: str, old_filename: str, new_filename: str, old_table_name: str, new_table_name: str):
+def save_session_metadata(
+    session_id: str,
+    old_filename: str,
+    new_filename: str,
+    old_table_name: str,
+    new_table_name: str,
+    data_format: str = "raw",
+):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO session_metadata (session_id, old_filename, new_filename, old_table_name, new_table_name)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO session_metadata (
+                    session_id, old_filename, new_filename, old_table_name, new_table_name, data_format
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING
-            """, (session_id, old_filename, new_filename, old_table_name, new_table_name))
+            """, (session_id, old_filename, new_filename, old_table_name, new_table_name, data_format))
             conn.commit()
 
 
@@ -291,7 +305,7 @@ def get_session_metadata(session_id: str) -> dict:
     with get_db_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
-                SELECT old_filename, new_filename, old_table_name, new_table_name
+                SELECT old_filename, new_filename, old_table_name, new_table_name, data_format
                 FROM session_metadata
                 WHERE session_id = %s
                 ORDER BY created_at DESC

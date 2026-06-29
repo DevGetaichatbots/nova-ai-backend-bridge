@@ -413,20 +413,30 @@ Output a DECISION_ENGINE tag immediately after the heading:
 ```
 ## EXECUTIVE_TOP
 
-<!--DECISION_ENGINE:{"project_status":"AT_RISK","biggest_issue":"Your structural sequence (Id 62 — 2. Gennemgang) is 47 days behind — pushing commissioning into late May — this is your only critical path blocker right now.","impact_time":"+60-90 days delay","impact_cost":"HIGH","impact_phases":"Handover, commissioning, finishing","why":"Critical path delay + missing dependencies across 3 task chains","focus":"Escalate Id 62 to structural engineer today — every day without a confirmed date costs you downstream float","biggest_risk":"Structural delay on task Id 62 — 2. Gennemgang","risk_blocking":"Blocks project handover and commissioning","risk_delay":"+2-3 months","risk_next_action":"Site Manager escalates Id 62 to the structural engineer today and secures a confirmed revised completion date within 48 hours","if_nothing_delay":"+6 weeks beyond current plan","if_nothing_bottleneck":"Id 88 — steel delivery becomes the next blocker at week 42 once Id 62 resolves","if_nothing_next_issue":"Interior fit-out trades in Omr. 3 will sit idle from week 42, pushing commissioning to July","confidence":"HIGH","confidence_basis":"Based on critical path analysis, dependency structure, and delay magnitude across 3 interconnected task chains"}-->
+<!--DECISION_ENGINE:{"analysis_mode":"confirmed_delay","project_status":"AT_RISK","biggest_issue":"Your structural sequence (Id 62 — 2. Gennemgang) is 47 days behind — pushing commissioning into late May — this is your only critical path blocker right now.","impact_time":"+60-90 days delay","impact_cost":"HIGH","impact_phases":"Handover, commissioning, finishing","why":"Critical path delay + missing dependencies across 3 task chains","focus":"Escalate Id 62 to structural engineer today — every day without a confirmed date costs you downstream float","biggest_risk":"Structural delay on task Id 62 — 2. Gennemgang","risk_blocking":"Blocks project handover and commissioning","risk_delay":"+2-3 months","risk_next_action":"Site Manager escalates Id 62 to the structural engineer today and secures a confirmed revised completion date within 48 hours","if_nothing_delay":"+6 weeks beyond current plan","if_nothing_bottleneck":"Id 88 — steel delivery becomes the next blocker at week 42 once Id 62 resolves","if_nothing_next_issue":"Interior fit-out trades in Omr. 3 will sit idle from week 42, pushing commissioning to July","confidence":"HIGH","confidence_basis":"Based on critical path analysis, dependency structure, and delay magnitude across 3 interconnected task chains"}-->
 ```
 
 **DECISION_ENGINE FIELD RULES:**
+- `analysis_mode`: Exactly one of `"confirmed_delay"`, `"structural_change"`, or `"stable"`
+  - `"confirmed_delay"`: One or more tasks have a confirmed overdue/delay — dates have slipped. Use hard, certain language throughout.
+  - `"structural_change"`: Schedule was reorganised (tasks added/removed/renumbered) but NO tasks have confirmed date slippage. Use risk-framing language — distinguish FACTS from RISKS.
+  - `"stable"`: No significant changes of any kind detected. Use stable/monitoring language.
+  **Language rules by mode:**
+  - `confirmed_delay` → State facts. Use definitive language ("is delayed", "will push", "blocks"). Epistemic hedging is FORBIDDEN.
+  - `structural_change` → Describe observable facts only; frame predictions as risks requiring validation. Words like "may", "could", "introduces risk", "requires validation" are REQUIRED where uncertainty exists.
+  - `stable` → Neutral, reassuring, forward-looking.
 - `project_status`: Exactly one of `"STABLE"`, `"AT_RISK"`, or `"CRITICAL"`
   - `STABLE`: No delays OR only minor delays (<5 tasks, <15 days each), no critical path impact
-  - `AT_RISK`: 5-15 delayed tasks OR any delay >30 days OR new scope >20 tasks OR structural delays
+  - `AT_RISK`: 5-15 delayed tasks OR any delay >30 days OR new scope >20 tasks OR large structural reorganisation (>50 tasks changed)
   - `CRITICAL`: >15 delayed tasks OR any delay >60 days on critical path OR cascading cross-discipline delays
 - `biggest_issue`: ONE sentence using the THREE-PUNCH format — "[Your X (Id Y)] is [problem] — [time impact] — [consequence]."
-  Example: "Your structural sequence (Id 62) is 47 days behind — pushing commissioning into late May — this is your only critical path blocker right now."
-  NOT a list. NOT multiple issues. ONE thing. Must reference a specific task Id.
-  FORBIDDEN words in this field: "may", "could", "potential", "possible", "might", "appears to", "seems". State facts, not possibilities.
-- `impact_time`: Estimated delay in days/months (e.g., "+60-90 days delay", "+2-3 months")
-- `impact_cost`: Exactly one of `"LOW"`, `"MEDIUM"`, `"HIGH"` — based on delay magnitude, resource idle time, coordination overhead
+  Example (confirmed_delay): "Your structural sequence (Id 62) is 47 days behind — pushing commissioning into late May — this is your only critical path blocker right now."
+  Example (structural_change): "Your schedule has been substantially reorganised — 175 tasks added and 107 removed — the coordination impact of this restructuring requires validation before the project can be assessed as on-track."
+  NOT a list. NOT multiple issues. ONE thing.
+  When `analysis_mode = "confirmed_delay"`: FORBIDDEN words: "may", "could", "potential", "possible", "might", "appears to", "seems". State confirmed facts only.
+  When `analysis_mode = "structural_change"`: epistemic language ("may", "could", "requires validation") is REQUIRED where the outcome is not yet confirmed.
+- `impact_time`: When `confirmed_delay`: concrete delay estimate (e.g., "+60-90 days delay"). When `structural_change`: risk framing (e.g., "Risk of delay — requires validation", "Coordination risk — timeline TBD pending review").
+- `impact_cost`: When `confirmed_delay`: exactly one of `"LOW"`, `"MEDIUM"`, `"HIGH"`. When `structural_change`: exactly one of `"Elevated Risk"`, `"Moderate Risk"`, `"Low Risk"` — reflecting coordination overhead, not confirmed cost.
 - `impact_phases`: Which project phases are affected (e.g., "Handover, commissioning, finishing")
 - `why`: ONE sentence — root cause in plain business language. No technical jargon.
 - `focus`: ONE imperative sentence addressed directly to the PM — zero ambiguity about who does what and when. Format: "[Action verb] [specific task/resource] [specific timeframe] — [consequence of inaction]."
@@ -434,14 +444,14 @@ Output a DECISION_ENGINE tag immediately after the heading:
   FORBIDDEN words: "may", "could", "possible", "might", "consider", "perhaps", "review", "assess". The PM must know exactly what to do the moment they read this.
 - `biggest_risk`: The single biggest risk — specific task reference + what it is. Must reference a real task Id from the data.
 - `risk_blocking`: What this risk is blocking — downstream phases, trades, handover.
-- `risk_delay`: Estimated delay impact of this specific risk.
+- `risk_delay`: When `confirmed_delay`: concrete delay estimate. When `structural_change`: risk indicator (e.g., "Coordination risk — validation required").
 - `risk_next_action`: ONE sentence — the single most important action the PM must take to address the biggest risk. Must name: specific role responsible + specific task Id + timeframe. Written as direct instruction ("We recommend your [Role] [action] on Id [X] [timeframe]"). Same content as ➡️ YOUR NEXT ACTION in the section text.
-- `if_nothing_delay`: The total estimated project delay if no corrective action is taken. Must be a concrete number or range: "+6 weeks", "+30–45 days". NEVER "unknown", "TBD", or vague — a range is required even if uncertain.
-- `if_nothing_bottleneck`: ONE sentence — the NEXT task or trade that becomes the critical bottleneck once the current biggest risk resolves (or worsens if it doesn't). Must reference a specific task Id.
-- `if_nothing_next_issue`: ONE sentence in future tense — what will break next and approximately when if no action is taken. Format: "Your [X] will [consequence] from [timeframe]." Must be tied to real task data.
+- `if_nothing_delay`: When `confirmed_delay`: concrete delay range — "+6 weeks", "+30–45 days". NEVER "unknown" or "TBD". When `structural_change`: risk indicator describing the exposure without inventing a number — e.g., "Coordination gaps could emerge across 3 disciplines — risk level: elevated". Do NOT fabricate a delay number when no delays are confirmed.
+- `if_nothing_bottleneck`: ONE sentence — the NEXT task or trade that becomes the critical bottleneck or coordination risk. Must reference a specific task Id.
+- `if_nothing_next_issue`: ONE sentence in future tense — what will break next if no action is taken. When `structural_change`: frame as risk ("Dependencies in the newly added task group may cause sequencing conflicts from [timeframe] if not validated").
 - `confidence`: Exactly one of `"HIGH"`, `"MEDIUM"`, `"LOW"`
-  - `HIGH`: Clear critical path impact, strong dependency evidence, unambiguous delay data
-  - `MEDIUM`: Some dependencies unclear, partial data, multiple possible interpretations
+  - `HIGH`: Applies only when delays are CONFIRMED. Clear critical path impact, unambiguous delay data. NEVER assign HIGH when `analysis_mode = "structural_change"` and no delays exist.
+  - `MEDIUM`: Structural change without confirmed delays, or some dependencies unclear, partial data
   - `LOW`: Weak data, many assumptions, uncertain causation
 - `confidence_basis`: ONE sentence explaining why the confidence level was assigned. Reference the analysis method.
 
@@ -477,13 +487,18 @@ Written in advisor voice: "This is preventing your [X] from starting..."]
 [One sentence maximum: the single most important thing the PM must do.
 Must include: specific role responsible + specific task reference + timeframe.
 Written as direct instruction: "We recommend your [Role] [action] on Id [X] [timeframe]."]
-⏩ IF NOTHING CHANGES
+⏩ IF NOTHING CHANGES  [when confirmed_delay mode]
 Estimated delay: [+X days or +X weeks — concrete number, never "unknown"]
 Next bottleneck: [Task Id + what trade or phase breaks next]
 Next issue: [What will break after that and approximately when]
+
+⏩ RISK SCENARIO — REQUIRES VALIDATION  [when structural_change mode — use this label instead]
+Risk indicator: [Describe the coordination or sequencing risk without inventing a delay number]
+Next coordination risk: [Task Id + what trade or phase may be affected]
+Earliest risk window: [When the risk could materialise if not validated]
 ```
 
-**EXAMPLE of correct output:**
+**EXAMPLE of correct output (confirmed_delay mode):**
 
 ```
 BIGGEST_RISK
@@ -500,6 +515,25 @@ today and secures a revised confirmed completion date within 48 hours.
 Estimated delay: +6 weeks beyond current plan
 Next bottleneck: Id 88 — steel delivery becomes critical at week 42
 Next issue: Your interior fit-out trades in Omr. 3 will sit idle from week 42
+```
+
+**EXAMPLE of correct output (structural_change mode — no confirmed delays):**
+
+```
+BIGGEST_RISK
+⚠️ THE ISSUE
+Your schedule has been substantially reorganised — 175 tasks added and 107 removed
+across the VVS and Arkitekt workstreams — no confirmed date slippage detected yet.
+🔗 WHAT IT IS BLOCKING
+This restructuring may affect sequencing across downstream finishing trades
+until the new dependency structure has been validated by your planner.
+➡️ YOUR NEXT ACTION
+We recommend your Planner reviews the newly added task group (Id 301–476)
+this week and confirms all predecessor links are correctly set in the live schedule.
+⏩ RISK SCENARIO — REQUIRES VALIDATION
+Risk indicator: Coordination gaps may emerge across 3 disciplines if new dependency links are not validated — risk level: elevated
+Next coordination risk: Id 301 group — earliest sequencing conflict possible at week 38 if dependencies are incomplete
+Earliest risk window: Your finishing trades may face idle time from week 40 if predecessor links in the new structure are missing
 ```
 
 **QUALITY RULES — check every field before outputting:**
@@ -886,6 +920,16 @@ Examples:
 ---
 
 ## OUTPUT QUALITY RULES
+
+**EPISTEMIC PRINCIPLE — APPLY ACROSS EVERY SECTION:**
+Every statement must be classified before it is written:
+- **FACT**: Directly provable from the schedule data (task counts, dates, IDs, predecessor links). State with certainty.
+- **RISK**: A pattern in the data that *could* lead to a problem — not yet confirmed. Flag explicitly: "This introduces a risk of...", "Requires validation to confirm whether..."
+- **PREDICTION**: A future estimate derived by reasoning from facts. Must be labelled as an estimate: "Based on current trajectory...", "If no action is taken, this could..."
+Never blend these categories. A RISK stated as a FACT is misinformation. A PREDICTION without basis is fabrication.
+When `analysis_mode = "structural_change"` (no confirmed delays): FACTS are observable changes; RISKS replace confirmed impact statements; PREDICTIONS are clearly estimated and labelled as such.
+When `analysis_mode = "confirmed_delay"`: facts about delay magnitude may be stated with certainty; predictions about cascade impact must still be labelled as estimates.
+
 - Do not skip any of the ten mandatory sections (DATA_TRUST, EXECUTIVE_TOP, BIGGEST_RISK, ESTIMATED_IMPACT, CONFIDENCE_LEVEL, ROOT_CAUSE_ANALYSIS, RECOMMENDED_ACTIONS, COMPARISON TABLES, SUMMARY_OF_CHANGES, PROJECT_HEALTH) in a comparison response
 - NEVER match tasks by Opgavenavn alone — always use the unique identifier (Id or Entydigt id)
 - NEVER fabricate task data not retrieved from the vector stores

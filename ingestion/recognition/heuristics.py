@@ -110,11 +110,14 @@ TOKEN_MAP: Dict[str, List[str]] = {
     "percent_complete": [
         "% arbejde færdigt", "% færdigt", "% complete", "percent complete",
         "fremdrift", "completion", "progress", "actual_completion_pct",
-        "pct complete", "pct_complete", "completion %",
+        "pct complete", "pct_complete", "completion %", "fuldført %",
+        "fuldfort %", "fuldført", "fuldfort",
     ],
     "predecessors": [
         "foregående opgaver", "predecessors", "predecessor", "foregående",
-        "dependencies", "depends on", "forudgående",
+        "dependencies", "depends on", "forudgående", "forgænger-id",
+        "forgaenger-id", "forgænger id", "forgaenger id", "forgænger",
+        "forgaenger", "forganger-id",
     ],
     "successors": [
         "efterfølgende opgaver", "successors", "successor", "efterfølgende",
@@ -153,6 +156,14 @@ TOKEN_MAP: Dict[str, List[str]] = {
     ],
     "inspected_type": [
         "inspectedtype", "inspection status", "accepted",
+    ],
+    "critical_flag": [
+        "critical", "critical_flag", "critical flag", "kritisk",
+        "on critical path",
+    ],
+    "total_float": [
+        "totalslack", "total slack", "total_slack", "total float",
+        "total_float", "float", "slack", "free slack", "freeslack",
     ],
 }
 
@@ -223,6 +234,8 @@ class HeuristicRecognizer:
             best_score = 0.0
 
             for raw_header, norm_header in zip(headers, headers_lower):
+                if semantic_role == "activity_type" and norm_header not in token_list:
+                    continue
                 matched, score = _best_match(norm_header, token_list)
                 if matched and score > best_score:
                     best_score = score

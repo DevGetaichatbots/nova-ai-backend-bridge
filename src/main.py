@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -425,6 +425,48 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+class PdfExportRequest(BaseModel):
+    html: str
+    filename: Optional[str] = "dashboard.pdf"
+    width: Optional[int] = None
+
+
+@app.post("/export/pdf")
+async def export_pdf(req: PdfExportRequest):
+    """Render self-contained dashboard HTML to a single wide-page vector PDF.
+
+    Uses headless Chromium (baked into the image at build time), so SVG charts
+    stay vector and background colours are preserved. The client sends the exact
+    HTML it is displaying and receives the PDF bytes for a silent download.
+    """
+    from src.pdf_export import html_to_pdf, DEFAULT_PAGE_WIDTH_PX
+
+    if not req.html or not req.html.strip():
+        raise HTTPException(status_code=400, detail="html is required")
+
+    width = req.width if (req.width and req.width >= 320) else DEFAULT_PAGE_WIDTH_PX
+
+    safe_name = re.sub(r"[^A-Za-z0-9._ -]", "", (req.filename or "dashboard.pdf")).strip()
+    if not safe_name.lower().endswith(".pdf"):
+        safe_name = (safe_name or "dashboard") + ".pdf"
+
+    logger.info(f"=== PDF EXPORT REQUEST === filename={safe_name} width={width} html_len={len(req.html)}")
+
+    try:
+        pdf_bytes = await html_to_pdf(req.html, page_width_px=width)
+    except Exception as e:
+        logger.exception("PDF export failed")
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {e}")
+
+    logger.info(f"=== PDF EXPORT OK === {len(pdf_bytes)} bytes for {safe_name}")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+    )
 
 
 @app.post("/upload")

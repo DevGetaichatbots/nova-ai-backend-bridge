@@ -130,6 +130,54 @@ def _duration_to_str(value) -> str:
         return str(value)
 
 
+def _duration_to_days(value) -> str:
+    """Convert an org.mpxj.Duration object to working-day float text."""
+    if value is None:
+        return ""
+    try:
+        amount = float(str(value.getDuration()))
+        units = str(value.getUnits()).upper()
+        if "DAY" in units:
+            days = amount
+        elif "WEEK" in units:
+            days = amount * 5.0
+        elif "HOUR" in units:
+            days = amount / 8.0
+        elif "MINUTE" in units:
+            days = amount / 480.0
+        else:
+            days = amount
+        return f"{days:.1f}"
+    except Exception:
+        return ""
+
+
+def _critical_to_str(task) -> str:
+    for method_name in ("getCritical", "isCritical"):
+        try:
+            method = getattr(task, method_name)
+            value = method()
+            if value is None:
+                continue
+            return "1" if str(value).strip().lower() in ("true", "1", "yes") else "0"
+        except Exception:
+            continue
+    return ""
+
+
+def _total_slack_to_str(task) -> str:
+    for method_name in ("getTotalSlack", "getTotalFloat"):
+        try:
+            method = getattr(task, method_name)
+            value = method()
+            if value is None:
+                continue
+            return _duration_to_days(value)
+        except Exception:
+            continue
+    return ""
+
+
 def _pct_to_str(value) -> str:
     """Convert a Java Number percentage to a plain integer string."""
     if value is None:
@@ -168,6 +216,8 @@ class MPPExtractor(BaseExtractor):
         "WBS",
         "Forgænger-ID",
         "Ressourcer",
+        "Critical",
+        "TotalSlack",
     ]
 
     def extract(self, file_path: Path) -> Dict[str, Any]:
@@ -248,6 +298,8 @@ class MPPExtractor(BaseExtractor):
                     _safe(task.getWBS()),
                     self._predecessors_str(task),
                     self._resources_str(task),
+                    _critical_to_str(task),
+                    _total_slack_to_str(task),
                 ]
                 rows.append(row)
             except Exception as exc:

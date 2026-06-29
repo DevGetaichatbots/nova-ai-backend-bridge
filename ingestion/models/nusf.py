@@ -29,6 +29,7 @@ class Provenance(BaseModel):
 class Activity(BaseModel):
     internal_id: str = Field(..., description="Stable, globally unique ID (derived UUID)")
     source_id: str = Field(..., description="Unchanged native ID from original format")
+    stable_key: Optional[str] = Field(None, description="Stable comparison key for old/new matching")
     name: str = Field(..., description="Activity description/name")
 
     wbs_code: Optional[str] = Field(None, description="Work Breakdown Structure hierarchical identifier")
@@ -45,7 +46,14 @@ class Activity(BaseModel):
     activity_type: ActivityType = Field(ActivityType.TASK, description="Operational classification of active node")
 
     discipline: Optional[str] = Field(None, description="Department, trade, or discipline tag")
+    location_path: Optional[str] = Field(None, description="Original location hierarchy/path when provided")
+    area: Optional[str] = Field(None, description="Normalized dashboard area/group")
+    floor: Optional[str] = Field(None, description="Normalized dashboard floor/level")
     phase: Optional[str] = Field(None, description="Project phase or segment")
+    is_late: Optional[bool] = Field(None, description="Source late/behind flag where available")
+    inspected_status: Optional[str] = Field(None, description="Source inspection/completion status where available")
+    critical_flag: Optional[bool] = Field(None, description="Source critical path flag where available")
+    total_float: Optional[float] = Field(None, description="Source total float/slack in days where available")
 
     predecessors: List[str] = Field(default_factory=list, description="Array of predecessor internal_ids")
     successors: List[str] = Field(default_factory=list, description="Array of successor internal_ids")

@@ -5,6 +5,7 @@ from datetime import datetime, date
 from ..vector_store import vector_store_manager
 from src.config import settings
 from openai import AzureOpenAI
+from .nusf_compare_engine import parse_nusf_chunks
 from .compare_v3_agent import (
     SCOPE_FILTER_MAP,
     _resolve_scope_prefixes,
@@ -372,6 +373,8 @@ class CompareV4Agent(CompareV3Agent):
         old_filename: str,
         new_filename: str,
         top_k: int = 50,
+        require_nusf: bool = False,
+        language: str = "en",
     ) -> dict:
         scope_prefixes = _resolve_scope_prefixes(scope_filter)
         logger.info(f"  V4 scope filter '{scope_filter}' → prefixes: {scope_prefixes}")
@@ -382,9 +385,24 @@ class CompareV4Agent(CompareV3Agent):
         try:
             if len(table_names) > 1:
                 new_table = table_names[1]
-                new_chunks = vector_store_manager.fetch_all_from_stores(
-                    [new_table], chunk_type="table"
-                ).get(new_table, [])
+                if require_nusf:
+                    fetched = vector_store_manager.fetch_all_from_stores(
+                        table_names[:2], chunk_type="table"
+                    )
+                    old_chunks = fetched.get(table_names[0], []) if table_names else []
+                    new_chunks = fetched.get(new_table, [])
+                    if not parse_nusf_chunks(old_chunks):
+                        raise RuntimeError(
+                            f"NUSF mode requested but OLD schedule '{old_filename}' is not stored as valid NUSF"
+                        )
+                    if not parse_nusf_chunks(new_chunks):
+                        raise RuntimeError(
+                            f"NUSF mode requested but NEW schedule '{new_filename}' is not stored as valid NUSF"
+                        )
+                else:
+                    new_chunks = vector_store_manager.fetch_all_from_stores(
+                        [new_table], chunk_type="table"
+                    ).get(new_table, [])
                 activity_rows, activity_metadata = _extract_activity_rows(new_chunks, scope_prefixes)
                 true_selected_count = len(activity_rows)
                 for activity in activity_rows:
@@ -397,6 +415,8 @@ class CompareV4Agent(CompareV3Agent):
                 logger.info(f"  V4 true selected count: {true_selected_count} (trades: {trade_counts})")
         except Exception as ex:
             logger.error(f"V4 activity count error: {ex}")
+            if require_nusf:
+                raise
 
         context, total_chunks = self._retrieve_context(table_names, old_filename, new_filename)
 
@@ -411,10 +431,25 @@ class CompareV4Agent(CompareV3Agent):
         ref_day   = reference_date.split('-')[0] if '-' in reference_date else '?'
         ref_month = reference_date.split('-')[1] if '-' in reference_date else '?'
 
-        system_prompt = f"""You are a strict data-extraction parser for construction project schedules. Output ONLY valid JSON. No markdown, no code fences, no explanation.
+        language_prompt = (
+            "OUTPUT LANGUAGE: Danish. Generate all free-text values in Danish. "
+            "Keep JSON keys, enum values, and field names unchanged.\n\n"
+            if language == "da" else
+            "OUTPUT LANGUAGE: English. Generate all free-text values in English. "
+            "Keep JSON keys, enum values, and field names unchanged.\n\n"
+        )
+
+        system_prompt = language_prompt + f"""You are a strict data-extraction parser for construction project schedules. Output ONLY valid JSON. No markdown, no code fences, no explanation.
 
 DATE FORMAT: All dates in the data and the reference date use DD-MM-YYYY format (day first).
 Reference date {reference_date} means day {ref_day}, month {ref_month} — parse accordingly.
+
+NUSF DATA RULES:
+- If the data contains "FORMAT: NUSF CSV", every row is already normalized. Use `stable_key` or `source_id` as the activity identity.
+- Server-side code computes row counts, added/removed/changed rows, progress variance, location filters, and trade counts. Do not override those counts by estimation.
+- Use `location_path`, `area`, `floor`, and `phase` for grouping and explanations.
+- Treat `is_late=true` as direct delay evidence.
+- Only identify critical path activities when explicit `critical_flag`, `total_float`, float/slack, or dependency evidence exists. Do not invent a critical path from activity names alone.
 
 === SCOPE RULES ===
 {prefix_hint}

@@ -31,7 +31,10 @@ from src.experimental import compare_v4_agent as v4_module
 
 
 class _FakeCompletions:
+    calls = []
+
     def create(self, **_kwargs):
+        self.calls.append(_kwargs)
         payload = {
             "executive_summary": {
                 "project_health": "Green",
@@ -63,6 +66,37 @@ class _FakeClient:
 
 
 class CompareV4AgentTest(unittest.TestCase):
+    def setUp(self):
+        _FakeCompletions.calls = []
+
+    def test_require_nusf_rejects_legacy_chunks(self):
+        old_chunks = [{"content": "ID;Aktivitetsnavn;Startdato\n1;Task A;01-06-2026"}]
+        new_chunks = [{"content": "ID;Aktivitetsnavn;Startdato\n1;Task A;01-06-2026"}]
+
+        agent = v4_module.CompareV4Agent.__new__(v4_module.CompareV4Agent)
+        agent.client = _FakeClient()
+        agent._retrieve_context = lambda *_args: ("", 1)
+
+        def fetch(tables, chunk_type):
+            return {
+                table: old_chunks if table == "old_table" else new_chunks
+                for table in tables
+            }
+
+        with patch.object(v4_module.vector_store_manager, "fetch_all_from_stores", side_effect=fetch):
+            with self.assertRaises(RuntimeError) as ctx:
+                agent.analyze(
+                    scope_filter="All activities",
+                    reference_date="01-02-2026",
+                    table_names=["old_table", "new_table"],
+                    session_id="session_123",
+                    old_filename="old.mpp",
+                    new_filename="new.mpp",
+                    require_nusf=True,
+                )
+
+        self.assertIn("not stored as valid NUSF", str(ctx.exception))
+
     def test_activity_count_ignores_planned_start_header(self):
         chunks = [
             {
@@ -181,6 +215,40 @@ class CompareV4AgentTest(unittest.TestCase):
         self.assertIn("109 - M (T4)", filters["phases"])
         self.assertIn("Delområde nord", filters["phases"])
 
+    def test_v4_requests_danish_output_when_language_is_danish(self):
+        chunks = [
+            {
+                "content": "\n".join(
+                    [
+                        "FORMAT: CSV - each row = one activity",
+                        "name;planned_start;planned_finish;progress",
+                        "EL - Cable install;01-01-2026;05-01-2026;0%",
+                    ]
+                )
+            }
+        ]
+
+        agent = v4_module.CompareV4Agent.__new__(v4_module.CompareV4Agent)
+        agent.client = _FakeClient()
+        agent._retrieve_context = lambda *_args: ("", 1)
+
+        with patch.object(
+            v4_module.vector_store_manager,
+            "fetch_all_from_stores",
+            side_effect=lambda tables, chunk_type: {tables[0]: chunks},
+        ):
+            agent.analyze(
+                scope_filter="All activities",
+                reference_date="01-02-2026",
+                table_names=["old_table", "new_table"],
+                session_id="session_123",
+                old_filename="old.csv",
+                new_filename="new.csv",
+                language="da",
+            )
+
+        system_prompt = _FakeCompletions.calls[0]["messages"][0]["content"]
+        self.assertIn("OUTPUT LANGUAGE: Danish", system_prompt)
 
 if __name__ == "__main__":
     unittest.main()

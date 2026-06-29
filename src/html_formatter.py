@@ -1047,6 +1047,8 @@ def _render_decision_engine_cards(de_data: Optional[Dict], language: str = "en")
     impact_phases = escape_html(str(de_data.get("impact_phases", "")))
     confidence = de_data.get("confidence", "MEDIUM")
     confidence_basis = escape_html(str(de_data.get("confidence_basis", "")))
+    analysis_mode = de_data.get("analysis_mode", "confirmed_delay")
+    is_structural = analysis_mode == "structural_change"
 
     conf_config = {
         "HIGH": {"color": "#10b981", "label_en": "HIGH", "label_da": "HØJ"},
@@ -1065,13 +1067,22 @@ def _render_decision_engine_cards(de_data: Optional[Dict], language: str = "en")
     blocking_label = "Blokerer" if language == "da" else "What It Blocks"
     delay_label = "Potentiel forsinkelse" if language == "da" else "Potential Delay"
     action_label = "Næste handling" if language == "da" else "Next Action"
-    if_nothing_title = "Hvis intet ændres" if language == "da" else "If Nothing Changes"
-    if_nothing_delay_label = "Estimeret forsinkelse" if language == "da" else "Estimated Delay"
-    if_nothing_bottleneck_label = "Næste flaskehals" if language == "da" else "Next Bottleneck"
-    if_nothing_next_issue_label = "Næste kritiske problem" if language == "da" else "Next Critical Issue"
-    impact_title = "Estimeret Konsekvens" if language == "da" else "Estimated Impact"
-    time_label = "Tid" if language == "da" else "Time"
-    cost_label = "Omkostning" if language == "da" else "Cost"
+    if is_structural:
+        if_nothing_title = "Risikoscenarie — kræver validering" if language == "da" else "Risk Scenario — Requires Validation"
+        if_nothing_delay_label = "Risikoindikator" if language == "da" else "Risk Indicator"
+        if_nothing_bottleneck_label = "Næste koordinationsrisiko" if language == "da" else "Next Coordination Risk"
+        if_nothing_next_issue_label = "Tidligste risikofase" if language == "da" else "Earliest Risk Window"
+        impact_title = "Risikoeksponering" if language == "da" else "Risk Exposure"
+        time_label = "Risikoniveau" if language == "da" else "Risk Level"
+        cost_label = "Risikoeksponering" if language == "da" else "Risk Exposure"
+    else:
+        if_nothing_title = "Hvis intet ændres" if language == "da" else "If Nothing Changes"
+        if_nothing_delay_label = "Estimeret forsinkelse" if language == "da" else "Estimated Delay"
+        if_nothing_bottleneck_label = "Næste flaskehals" if language == "da" else "Next Bottleneck"
+        if_nothing_next_issue_label = "Næste kritiske problem" if language == "da" else "Next Critical Issue"
+        impact_title = "Estimeret Konsekvens" if language == "da" else "Estimated Impact"
+        time_label = "Tid" if language == "da" else "Time"
+        cost_label = "Omkostning" if language == "da" else "Cost"
     phases_label = "Faser" if language == "da" else "Phases"
     conf_title = "Tillidsniveau" if language == "da" else "Confidence Level"
     basis_label = "Grundlag" if language == "da" else "Basis"
@@ -1117,13 +1128,26 @@ def _render_decision_engine_cards(de_data: Optional[Dict], language: str = "en")
         f"</div>"
     ) if risk_next_action else ""
 
+    if is_structural:
+        _if_nothing_bg = "#f0f9ff"
+        _if_nothing_border = "#bae6fd"
+        _if_nothing_header_color = "#0369a1"
+        _if_nothing_text_color = "#0c4a6e"
+        _if_nothing_label_color = "#075985"
+    else:
+        _if_nothing_bg = "#fffbeb"
+        _if_nothing_border = "#fde68a"
+        _if_nothing_header_color = "#b45309"
+        _if_nothing_text_color = "#78350f"
+        _if_nothing_label_color = "#92400e"
+
     _if_nothing_row = (
-        f'<div style="margin-top:10px;padding:12px 14px;background:#fffbeb;border-radius:8px;border:1px solid #fde68a;">'
-        f'<div style="font-size:10px;font-weight:700;color:#b45309;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:7px;">⏩ {if_nothing_title}</div>'
+        f'<div style="margin-top:10px;padding:12px 14px;background:{_if_nothing_bg};border-radius:8px;border:1px solid {_if_nothing_border};">'
+        f'<div style="font-size:10px;font-weight:700;color:{_if_nothing_header_color};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:7px;">⏩ {if_nothing_title}</div>'
         f'<div style="display:grid;gap:5px;">'
-        f'<div style="font-size:11px;color:#78350f;line-height:1.5;"><span style="font-weight:700;color:#92400e;">{if_nothing_delay_label}:</span> {if_nothing_delay}</div>'
-        f'<div style="font-size:11px;color:#78350f;line-height:1.5;"><span style="font-weight:700;color:#92400e;">{if_nothing_bottleneck_label}:</span> {if_nothing_bottleneck}</div>'
-        f'<div style="font-size:11px;color:#78350f;line-height:1.5;"><span style="font-weight:700;color:#92400e;">{if_nothing_next_issue_label}:</span> {if_nothing_next_issue}</div>'
+        f'<div style="font-size:11px;color:{_if_nothing_text_color};line-height:1.5;"><span style="font-weight:700;color:{_if_nothing_label_color};">{if_nothing_delay_label}:</span> {if_nothing_delay}</div>'
+        f'<div style="font-size:11px;color:{_if_nothing_text_color};line-height:1.5;"><span style="font-weight:700;color:{_if_nothing_label_color};">{if_nothing_bottleneck_label}:</span> {if_nothing_bottleneck}</div>'
+        f'<div style="font-size:11px;color:{_if_nothing_text_color};line-height:1.5;"><span style="font-weight:700;color:{_if_nothing_label_color};">{if_nothing_next_issue_label}:</span> {if_nothing_next_issue}</div>'
         f"</div></div>"
     ) if if_nothing_delay else ""
 

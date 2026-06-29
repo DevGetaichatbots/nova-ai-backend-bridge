@@ -1,0 +1,11 @@
+.replit
+replit.nix
+replit.md
+.agents/
+__pycache__/
+*.pyc
+.env
+*.egg-info
+.git
+uv.lock
+analysis_debug.txt

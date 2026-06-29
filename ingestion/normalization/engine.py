@@ -15,6 +15,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -64,6 +65,65 @@ def _pct_to_float(raw: str) -> float:
         return 0.0
 
 
+def _truthy(raw: str) -> Optional[bool]:
+    if raw is None:
+        return None
+    value = str(raw).strip().lower()
+    if value in ("true", "1", "yes", "ja", "y"):
+        return True
+    if value in ("false", "0", "no", "nej", "n"):
+        return False
+    return None
+
+
+def _stable_text(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip())
+
+
+def _split_location_path(value: str) -> List[str]:
+    return [part.strip() for part in re.split(r"\s*/\s*", str(value or "")) if part.strip()]
+
+
+def _floor_from_path_part(part: str) -> str:
+    value = str(part or "").strip()
+    lower = value.lower()
+    if not value:
+        return ""
+    if lower in ("st.", "st", "stue"):
+        return "Ground Floor"
+    if "kælder" in lower or "kaelder" in lower or "basement" in lower:
+        match = re.search(r"-\s*(\d+)", value)
+        return f"Basement -{match.group(1)}" if match else "Basement"
+    match = re.fullmatch(r"(\d+)\.", value)
+    if match:
+        return f"{match.group(1)}. Floor"
+    match = re.search(r"\b(\d+)\.\s*sal\b", value, re.I)
+    if match:
+        return f"{match.group(1)}. Floor"
+    return ""
+
+
+def _location_parts(location_path: str, area_raw: str = "", floor_raw: str = "") -> tuple[str, str, str]:
+    parts = _split_location_path(location_path)
+    area = _stable_text(area_raw)
+    floor = _stable_text(floor_raw)
+    phase = ""
+
+    if parts:
+        area = area or (parts[1] if len(parts) > 1 else "")
+        for part in reversed(parts[1:]):
+            floor = floor or _floor_from_path_part(part)
+            if floor:
+                break
+        for part in parts[2:]:
+            if _floor_from_path_part(part):
+                continue
+            phase = part
+            break
+
+    return area, floor, phase
+
+
 def _detect_activity_type(duration_raw: str, name: str) -> ActivityType:
     dur_lower = duration_raw.strip().lower()
     if dur_lower in ("0d", "0", ""):
@@ -109,8 +169,14 @@ class NormalizationEngine:
         actual_start_col = mapper.get("actual_start")
         actual_finish_col = mapper.get("actual_finish")
         act_type_col = mapper.get("activity_type")
+        is_late_col = mapper.get("is_late")
+        inspected_col = mapper.get("inspected_type")
+        critical_col = mapper.get("critical_flag")
+        total_float_col = mapper.get("total_float")
 
         effective_id_col = entydigt_col or id_col
+        if recognition.match_key == "tbs" and wbs_col:
+            effective_id_col = wbs_col
 
         activities: List[Activity] = []
         source_id_to_internal: Dict[str, str] = {}
@@ -163,13 +229,18 @@ class NormalizationEngine:
             pct = _pct_to_float(raw_pct)
 
             raw_source_id = _get_val(row, headers, effective_id_col)
+            raw_location_path = _get_val(row, headers, area_col)
+            if recognition.match_key == "name_location":
+                raw_source_id = f"{_stable_text(raw_name)} | {_stable_text(raw_location_path)}"
             if not raw_source_id:
                 raw_source_id = str(row_idx + 1)
+            stable_key = raw_source_id
 
             raw_wbs = _get_val(row, headers, wbs_col)
             raw_disc = _get_val(row, headers, disc_col)
-            raw_area = _get_val(row, headers, area_col)
+            raw_area = raw_location_path
             raw_floor = _get_val(row, headers, floor_col)
+            area, floor, phase = _location_parts(raw_location_path, raw_area if recognition.match_key != "name_location" else "", raw_floor)
 
             if raw_floor and raw_area:
                 discipline = f"{raw_floor} / {raw_area}"
@@ -192,6 +263,14 @@ class NormalizationEngine:
 
             actual_start = parse_date(_get_val(row, headers, actual_start_col)) if actual_start_col else None
             actual_finish = parse_date(_get_val(row, headers, actual_finish_col)) if actual_finish_col else None
+            is_late = _truthy(_get_val(row, headers, is_late_col)) if is_late_col else None
+            inspected_status = _get_val(row, headers, inspected_col) if inspected_col else None
+            critical_flag = _truthy(_get_val(row, headers, critical_col)) if critical_col else None
+            raw_float = _get_val(row, headers, total_float_col) if total_float_col else ""
+            try:
+                total_float = float(str(raw_float).replace(",", ".")) if raw_float else None
+            except ValueError:
+                total_float = None
 
             internal_id = str(uuid.uuid4())
 
@@ -225,6 +304,7 @@ class NormalizationEngine:
             activity = Activity(
                 internal_id=internal_id,
                 source_id=raw_source_id,
+                stable_key=stable_key,
                 name=raw_name or f"Activity {row_idx + 1}",
                 wbs_code=raw_wbs or None,
                 wbs_level=raw_wbs.count(".") if raw_wbs else 0,
@@ -236,6 +316,14 @@ class NormalizationEngine:
                 percent_complete=pct,
                 activity_type=act_type,
                 discipline=discipline,
+                location_path=raw_location_path or None,
+                area=area or None,
+                floor=floor or None,
+                phase=phase or None,
+                is_late=is_late,
+                inspected_status=inspected_status or None,
+                critical_flag=critical_flag,
+                total_float=total_float,
                 provenance=provenance,
                 has_logic_warning=date_swapped,
                 warning_messages=(
@@ -379,13 +467,17 @@ def to_nusf_chunks(schedule: NormalizedSchedule) -> List[Dict[str, Any]]:
     receives format-agnostic, pre-normalized data regardless of source format.
 
     Fields emitted (always in this order):
-      source_id, name, planned_start, planned_finish, percent_complete,
-      activity_type, wbs_code, discipline, duration_hours, actual_start, actual_finish
+      source_id, stable_key, name, planned_start, planned_finish,
+      percent_complete, activity_type, wbs_code, discipline, location_path,
+      area, floor, phase, duration_hours, actual_start, actual_finish,
+      is_late, inspected_status, critical_flag, total_float, predecessors, successors
     """
     NUSF_HEADERS = [
-        "source_id", "name", "planned_start", "planned_finish",
+        "source_id", "stable_key", "name", "planned_start", "planned_finish",
         "percent_complete", "activity_type", "wbs_code", "discipline",
-        "duration_hours", "actual_start", "actual_finish",
+        "location_path", "area", "floor", "phase", "duration_hours",
+        "actual_start", "actual_finish", "is_late", "inspected_status",
+        "critical_flag", "total_float", "predecessors", "successors",
     ]
 
     def _fmt_dt(dt) -> str:
@@ -403,6 +495,7 @@ def to_nusf_chunks(schedule: NormalizedSchedule) -> List[Dict[str, Any]]:
         for act in batch:
             compact_lines.append(_serialize_row([
                 act.source_id,
+                act.stable_key or act.source_id,
                 act.name,
                 _fmt_dt(act.planned_start),
                 _fmt_dt(act.planned_finish),
@@ -410,9 +503,19 @@ def to_nusf_chunks(schedule: NormalizedSchedule) -> List[Dict[str, Any]]:
                 act.activity_type.value,
                 act.wbs_code or "",
                 act.discipline or "",
+                act.location_path or "",
+                act.area or "",
+                act.floor or "",
+                act.phase or "",
                 str(act.duration_hours),
                 _fmt_dt(act.actual_start),
                 _fmt_dt(act.actual_finish),
+                "" if act.is_late is None else str(bool(act.is_late)).lower(),
+                act.inspected_status or "",
+                "" if act.critical_flag is None else str(bool(act.critical_flag)).lower(),
+                "" if act.total_float is None else str(act.total_float),
+                ",".join(act.predecessors),
+                ",".join(act.successors),
             ]))
 
         if compact_lines:
