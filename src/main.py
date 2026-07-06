@@ -361,11 +361,37 @@ logger = logging.getLogger(__name__)
 from src.vector_store import vector_store_manager
 from src.agent import rag_agent
 from src.predictive_agent import predictive_agent
-from src.database import init_pgvector_extension, create_chat_memory_table, save_session_metadata, get_session_metadata
+from src.database import init_pgvector_extension, create_chat_memory_table, save_session_metadata, get_session_metadata, get_session_metadata_history
 from src.html_formatter import format_response_as_html
 from src.predictive_html_formatter import format_predictive_as_html
 from src.predictive_dashboard_formatter import format_predictive_as_dashboard_html
 from src.pdf_processor import process_pdf_binary, rows_to_compact_csv_chunks
+
+
+def _parse_history_table_names(value: str | None) -> list[str]:
+    if not value:
+        return []
+    import json as _json
+
+    raw = str(value).strip()
+    if not raw:
+        return []
+    try:
+        parsed = _json.loads(raw)
+        if isinstance(parsed, list):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+    except Exception:
+        pass
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def _append_unique(values: list[str], *items: str) -> None:
+    seen = set(values)
+    for item in items:
+        item = str(item or "").strip()
+        if item and item not in seen:
+            values.append(item)
+            seen.add(item)
 
 
 @asynccontextmanager
@@ -1853,6 +1879,301 @@ async def compare_v5_graph(
         logger.error(f"Compare V5 Graph failed: {e}")
         _update_progress_v4(analysis_id, "error", str(e))
         _schedule_progress_cleanup(analysis_id, delay=120)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/version-1.0/health")
+async def version_1_health_dashboard(
+    session_id: str = Form(...),
+    old_session_id: str = Form(...),
+    new_session_id: str = Form(...),
+    scope_filter: str = Form(None),
+    reference_date: str = Form(None),
+    language: str = Form("en"),
+    format: str = Form("html"),
+    analysis_id: str = Form(None),
+    data_format: str = Form(None),
+    history_table_names: str = Form(None),
+):
+    """Nova Insight Version 1.0 project health dashboard.
+
+    Production baseline: v5-graph comparison facts + the simpler V1 decision
+    dashboard formatter.
+    """
+    import json as _json
+
+    if not analysis_id:
+        analysis_id = str(uuid.uuid4())[:12]
+
+    start_time = time.time()
+    logger.info(f"=== VERSION 1.0 HEALTH REQUEST [{analysis_id}] ===")
+    logger.info(f"Session: {session_id} | Old DB: {old_session_id} | New DB: {new_session_id}")
+    logger.info(f"Scope Filter: {scope_filter} | Reference Date: {reference_date}")
+
+    _update_progress_v4(analysis_id, "received")
+
+    try:
+        from src.experimental.compare_v5_graph_agent import compare_v5_graph_agent
+        from src.version_1_0 import format_health_v1_as_html
+
+        session_meta = get_session_metadata(session_id)
+        old_filename = session_meta.get("old_filename", "Old Schedule").replace(".pdf", "")
+        new_filename = session_meta.get("new_filename", "New Schedule").replace(".pdf", "")
+        effective_data_format = data_format or session_meta.get("data_format") or "raw"
+        require_nusf = effective_data_format == "nusf"
+
+        _update_progress_v4(analysis_id, "extracting")
+
+        loop = asyncio.get_event_loop()
+        tables = [old_session_id, new_session_id]
+        history_labels = {
+            old_session_id: old_filename,
+            new_session_id: new_filename,
+        }
+        try:
+            for meta in get_session_metadata_history(session_id):
+                old_table = meta.get("old_table_name")
+                new_table = meta.get("new_table_name")
+                old_label = (meta.get("old_filename") or old_table or "").replace(".pdf", "")
+                new_label = (meta.get("new_filename") or new_table or "").replace(".pdf", "")
+                _append_unique(tables, old_table, new_table)
+                if old_table and old_label:
+                    history_labels[old_table] = old_label
+                if new_table and new_label:
+                    history_labels[new_table] = new_label
+        except Exception as history_ex:
+            logger.warning(f"Could not load session history for V1 graph: {history_ex}")
+        _append_unique(tables, *_parse_history_table_names(history_table_names))
+
+        _update_progress_v4(analysis_id, "analyzing")
+
+        result = await loop.run_in_executor(
+            _query_executor,
+            lambda: compare_v5_graph_agent.analyze(
+                scope_filter=scope_filter or "All activities",
+                reference_date=reference_date or "Unknown",
+                table_names=tables,
+                session_id=session_id,
+                old_filename=old_filename,
+                new_filename=new_filename,
+                require_nusf=require_nusf,
+                language=language,
+                history_labels=history_labels,
+            ),
+        )
+
+        json_data = result.get("json", {})
+
+        _update_progress_v4(analysis_id, "formatting")
+
+        if format == "html":
+            response_text = format_health_v1_as_html(json_data, language)
+        else:
+            response_text = _json.dumps(json_data, ensure_ascii=False)
+
+        _update_progress_v4(analysis_id, "complete")
+        _schedule_progress_cleanup(analysis_id)
+
+        elapsed = time.time() - start_time
+        logger.info(f"=== VERSION 1.0 HEALTH COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
+
+        return {
+            "analysis_id": analysis_id,
+            "response": response_text,
+            "json_data": json_data,
+            "context_chunks": result.get("context_chunks", 0),
+            "format": format,
+            "version": "1.0",
+            "processing_time_seconds": round(elapsed, 1),
+        }
+
+    except Exception as e:
+        logger.error(f"Version 1.0 health dashboard failed: {e}", exc_info=True)
+        _update_progress_v4(analysis_id, "error", str(e))
+        _schedule_progress_cleanup(analysis_id, delay=120)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/version-1.0/predictive")
+async def version_1_predictive_dashboard(
+    schedule: UploadFile = File(...),
+    language: str = Form("en"),
+    format: str = Form("html"),
+    analysis_id: str = Form(None),
+    data_format: str = Form("raw"),
+):
+    """Nova Insight Version 1.0 predictive decision dashboard."""
+    import json as _json
+
+    start_time = time.time()
+    if not analysis_id:
+        analysis_id = str(uuid.uuid4())[:12]
+
+    filename = schedule.filename or "schedule.pdf"
+    filename_clean = (
+        filename.replace(".pdf", "").replace(".PDF", "")
+        .replace(".csv", "").replace(".CSV", "")
+        .replace(".xml", "").replace(".XML", "")
+        .replace(".mpp", "").replace(".MPP", "")
+    )
+    reference_date = _extract_reference_date(filename)
+
+    _update_progress(analysis_id, "received", language)
+    logger.info(f"=== VERSION 1.0 PREDICTIVE REQUEST [{analysis_id}] ===")
+    logger.info(f"Schedule: {filename} | Language: {language} | Format: {data_format} | Reference date: {reference_date or 'not found'}")
+
+    if not _is_allowed_file(filename):
+        _update_progress(analysis_id, "error", language)
+        _schedule_progress_cleanup(analysis_id, delay=60)
+        raise HTTPException(status_code=400, detail="Only PDF, CSV, Excel (.xlsx), Microsoft Project (.mpp), and MS Project XML (.xml) files are accepted")
+
+    try:
+        from src.version_1_0 import format_predictive_v1_as_html
+
+        file_bytes = await schedule.read()
+        _update_progress(analysis_id, "reading", language, f"{len(file_bytes) // 1024} KB")
+
+        loop = asyncio.get_event_loop()
+        is_csv_file = _is_csv(filename)
+        is_mpp_file = _is_mpp(filename)
+        is_mspdi_file = _is_mspdi(filename)
+
+        if data_format == "nusf":
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: _process_file_to_nusf_chunks(file_bytes, filename),
+            )
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            context = _build_predictive_context(chunks, filename_clean)
+        elif is_csv_file:
+            context = _build_predictive_context_from_csv(file_bytes, filename_clean)
+            row_count = context.count("\n")
+        elif is_mpp_file:
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: _process_mpp_to_chunks(file_bytes, filename),
+            )
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            context = _build_predictive_context(chunks, filename_clean)
+        elif is_mspdi_file:
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: _process_mspdi_to_chunks(file_bytes, filename),
+            )
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            context = _build_predictive_context(chunks, filename_clean)
+        else:
+            chunks = await loop.run_in_executor(
+                _query_executor,
+                lambda: process_pdf_binary(file_bytes, filename),
+            )
+            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            context = _build_predictive_context(chunks, filename_clean)
+
+        _update_progress(analysis_id, "extracting", language, f"{row_count} activities")
+        _update_progress(analysis_id, "analyzing", language, f"{row_count} activities")
+
+        predictive_result = await loop.run_in_executor(
+            _query_executor,
+            lambda: predictive_agent.analyze(
+                context=context,
+                user_query=(
+                    "Execute Nova Insight Version 1.0 predictive analysis: produce concise decision support, "
+                    "preserve real activity IDs, include location/phase/trade evidence when visible, avoid invented "
+                    "forecast values, and rank the top actions a project manager should take now."
+                ),
+                language=language,
+                schedule_filename=filename_clean,
+                reference_date=reference_date,
+                data_format=data_format,
+            ),
+        )
+
+        predictive_json = predictive_result.get("predictive_json", None)
+        predictive_status = predictive_result.get("status", "error")
+        predictive_model = predictive_result.get("model", "")
+
+        if isinstance(predictive_json, dict):
+            delayed_rows = predictive_json.get("delayed_activities", [])
+            if not isinstance(delayed_rows, list):
+                delayed_rows = []
+            critical_count = sum(1 for row in delayed_rows if row.get("priority") == "CRITICAL_NOW")
+            important_count = sum(1 for row in delayed_rows if row.get("priority") == "IMPORTANT_NEXT")
+            monitor_count = sum(1 for row in delayed_rows if row.get("priority") == "MONITOR")
+            insight = predictive_json.setdefault("insight_data", {})
+            overview = predictive_json.setdefault("schedule_overview", {})
+            if row_count:
+                insight["total_activities"] = row_count
+                overview["total_activities"] = row_count
+            insight["delayed_count"] = len(delayed_rows)
+            insight["critical_count"] = critical_count
+            insight["important_count"] = important_count
+            insight["monitor_count"] = monitor_count
+            overview["delayed_count"] = len(delayed_rows)
+
+        _update_progress(analysis_id, "formatting", language)
+
+        if format == "html" and predictive_json:
+            response_text = format_predictive_v1_as_html(predictive_json, language)
+        elif predictive_json:
+            response_text = _json.dumps(predictive_json, ensure_ascii=False)
+        else:
+            response_text = predictive_result.get("predictive_insights", "")
+
+        _update_progress(analysis_id, "complete", language)
+        _schedule_progress_cleanup(analysis_id)
+
+        elapsed = time.time() - start_time
+        logger.info(f"=== VERSION 1.0 PREDICTIVE COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
+
+        return {
+            "analysis_id": analysis_id,
+            "response": response_text,
+            "predictive_status": predictive_status,
+            "predictive_model": predictive_model,
+            "filename": filename,
+            "reference_date": reference_date,
+            "format": format,
+            "version": "1.0",
+            "processing_time_seconds": round(elapsed, 1),
+        }
+
+    except Exception as e:
+        logger.error(f"Version 1.0 predictive dashboard failed: {e}", exc_info=True)
+        _update_progress(analysis_id, "error", language, str(e))
+        _schedule_progress_cleanup(analysis_id, delay=120)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/version-1.0/localize")
+async def version_1_localize_dashboard(
+    html: str = Form(...),
+    language: str = Form("da"),
+):
+    """Re-render an existing Version 1.0 dashboard HTML in the requested language.
+
+    This avoids running the full analysis twice. The route extracts the
+    deterministic dashboard payload embedded in the returned HTML and renders
+    the same health or predictive dashboard shell with localized labels.
+    """
+    start_time = time.time()
+    try:
+        from src.version_1_0 import localize_v1_html
+
+        response_text = localize_v1_html(html, language)
+        elapsed = time.time() - start_time
+
+        return {
+            "response": response_text,
+            "format": "html",
+            "language": "da" if str(language).lower().startswith("da") else "en",
+            "version": "1.0",
+            "processing_time_seconds": round(elapsed, 3),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Version 1.0 localization failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

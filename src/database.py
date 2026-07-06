@@ -315,6 +315,19 @@ def get_session_metadata(session_id: str) -> dict:
     return dict(result) if result else {}
 
 
+def get_session_metadata_history(session_id: str) -> list[dict]:
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT old_filename, new_filename, old_table_name, new_table_name, data_format, created_at
+                FROM session_metadata
+                WHERE session_id = %s
+                ORDER BY created_at ASC
+            """, (session_id,))
+            results = cur.fetchall()
+    return [dict(row) for row in results]
+
+
 def save_chat_message(session_id: str, role: str, content: str):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
