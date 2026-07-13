@@ -86,6 +86,7 @@ CSS = """
 .ni-progress-row{display:contents}.ni-progress-label{font-size:12px;font-weight:850;color:#263845;padding:7px 0}.ni-progress-track{height:14px;background:#e3eef0;overflow:hidden;border-radius:3px}.ni-progress-bar{height:100%;background:linear-gradient(90deg,#008c8c,#00c2c2);border-radius:3px}.ni-progress-value{font-size:12px;font-weight:900;text-align:right}
 .ni-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.ni-action{border:1px solid #cfe4e7;border-left:3px solid #00a7a7;border-radius:7px;padding:10px;background:#f8fefe}.ni-action-rank{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#00a7a7,#0284c7);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;margin-bottom:8px}.ni-action-text{font-size:12px;font-weight:800;color:#14212b}.ni-action-meta{font-size:11px;color:#63737c;margin-top:6px}
 .ni-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px}.ni-summary-item{border:1px solid #dcebed;border-left:3px solid #00a7a7;border-radius:7px;background:#f8fefe;padding:9px 10px}.ni-summary-label{font-size:9px;text-transform:uppercase;letter-spacing:.35px;font-weight:900;color:#71828f}.ni-summary-value{margin-top:3px;font-size:15px;font-weight:900;color:#14212b}.ni-summary-note{grid-column:1/-1;font-size:12px;color:#4c5f6b;background:#fbfefe;border:1px solid #e4eff1;border-radius:7px;padding:10px}
+.ni-summary-dark{background:linear-gradient(135deg,#06343b 0%,#0a4650 58%,#08313b 100%);border:1px solid #0e6770;border-radius:8px;padding:14px;color:#eefefe;box-shadow:0 8px 22px rgba(4,47,54,.20);margin-bottom:14px}.ni-summary-dark .ni-section-title,.ni-summary-dark .ni-summary-value{color:#eefefe}.ni-summary-dark .ni-summary-label{color:#9ed8dc}.ni-summary-dark .ni-summary-item{background:rgba(4,38,45,.45);border:1px solid rgba(151,221,226,.28)}.ni-summary-dark .ni-summary-note{background:rgba(4,38,45,.45);border:1px solid rgba(151,221,226,.28);color:#d7eeee}
 .ni-table-wrap{max-height:360px;overflow:auto;border:1px solid #dcebed;border-radius:7px}.ni-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}.ni-table th{position:sticky;top:0;background:#eaf8fa;color:#0f5f68;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border-bottom:1px solid #bfe5e9;white-space:nowrap;cursor:pointer}.ni-table td{padding:7px 8px;border-bottom:1px solid #eef6f7;color:#263845;vertical-align:top}.ni-table tr:nth-child(even) td{background:#fbfefe}.ni-table tr:last-child td{border-bottom:0}.ni-task{font-weight:800;color:#14212b;min-width:180px}.ni-chip{display:inline-flex;padding:2px 6px;border-radius:4px;background:#e7f7f8;color:#0f5f68;font-size:10px;font-weight:800;margin:1px 2px 1px 0}.ni-neg{color:#dc2626;font-weight:900}.ni-pos{color:#059669;font-weight:900}
 .ni-section-red .ni-table th{background:#fff1f2;color:#be123c;border-bottom-color:#fecdd3}.ni-section-green .ni-table th{background:#ecfdf5;color:#047857;border-bottom-color:#bbf7d0}.ni-section-amber .ni-table th{background:#fffbeb;color:#b45309;border-bottom-color:#fde68a}.ni-section-blue .ni-table th{background:#eff8ff;color:#0369a1;border-bottom-color:#bae6fd}
 @media(max-width:1050px){.ni-kpis{grid-template-columns:repeat(3,1fr)}.ni-actions{grid-template-columns:1fr}.ni-body{flex-direction:column}.ni-sidebar{position:relative;width:100%;min-width:0;border-right:0;border-bottom:1px solid #dfe7ea}.ni-filter-group{display:inline-block;vertical-align:top;min-width:180px;margin-right:12px}.ni-main{padding:12px}.ni-graph-card{padding:16px}.ni-graph-head{flex-direction:column}.ni-progress-list{grid-template-columns:120px 1fr 48px}}
@@ -744,7 +745,7 @@ def _render_summary(payload: dict, language: str) -> str:
         ("reporting_period", _summary_value(summary.get("reporting_period"))),
     ]
     parts = [
-        '<section class="ni-section ni-summary-section ni-section-blue">',
+        '<section class="ni-summary-dark">',
         _section_heading(language, "summary_notes", sub_key="summary_notes_sub"),
         '<div class="ni-summary-grid">',
     ]
@@ -772,7 +773,9 @@ def _render_payload(payload: dict, language: str) -> str:
     tables = payload.get("tables", {})
     table_counts = payload.get("table_counts", {})
     table_html = []
+    summary_html = ""
     if payload.get("mode") == "health":
+        summary_html = _render_summary(payload, language)
         table_html.extend(
             [
                 _render_table(language, "behind_table", tables.get("behind", [])),
@@ -780,7 +783,6 @@ def _render_payload(payload: dict, language: str) -> str:
                 _render_table(language, "changed_table", tables.get("changed", []), "changed", table_counts.get("changed_table")),
                 _render_table(language, "stage_table", tables.get("stage", [])),
                 _render_table(language, "critical_path_table", tables.get("critical_path", []), "critical_path"),
-                _render_summary(payload, language),
             ]
         )
     else:
@@ -812,6 +814,7 @@ def _render_payload(payload: dict, language: str) -> str:
     {_render_sidebar(payload, language)}
     <main class="ni-main">
       {warnings}
+      {summary_html}
       {_render_progress_graph(payload, language)}
       {_render_area_progress(payload, language)}
       {''.join(table_html)}

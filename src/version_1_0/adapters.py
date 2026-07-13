@@ -295,21 +295,51 @@ def adapt_health_dashboard(data: dict, language: str = "en") -> dict:
     stage_rows = [_activity_row(i) for i in stage_items]
     critical_path_rows = [_activity_row(i) for i in critical_path_items]
     changed_rows = []
+    grouped_changes = {}
     for item in changed.get("changes", []):
-        row = _activity_row(item)
-        row.update(
-            {
-                "change_type": _clean(item.get("change_type")),
-                "old": _clean(item.get("old")),
-                "new": _clean(item.get("new")),
-                "old_start": _clean(item.get("old_start")),
-                "new_start": _clean(item.get("new_start")),
-                "old_finish": _clean(item.get("old_finish")),
-                "new_finish": _clean(item.get("new_finish")),
-                "old_duration": _clean(item.get("old_duration")),
-                "new_duration": _clean(item.get("new_duration")),
-            }
-        )
+        act_id = item.get("id") or item.get("activity")
+        if act_id not in grouped_changes:
+            row = _activity_row(item)
+            row.update(
+                {
+                    "changes_list": [],
+                    "old_start": _clean(item.get("old_start")),
+                    "new_start": _clean(item.get("new_start")),
+                    "old_finish": _clean(item.get("old_finish")),
+                    "new_finish": _clean(item.get("new_finish")),
+                    "old_duration": _clean(item.get("old_duration")),
+                    "new_duration": _clean(item.get("new_duration")),
+                }
+            )
+            grouped_changes[act_id] = row
+        
+        # Merge properties if subsequent changes have data
+        current_row = grouped_changes[act_id]
+        if not current_row["old_start"]: current_row["old_start"] = _clean(item.get("old_start"))
+        if not current_row["new_start"]: current_row["new_start"] = _clean(item.get("new_start"))
+        if not current_row["old_finish"]: current_row["old_finish"] = _clean(item.get("old_finish"))
+        if not current_row["new_finish"]: current_row["new_finish"] = _clean(item.get("new_finish"))
+        if not current_row["old_duration"]: current_row["old_duration"] = _clean(item.get("old_duration"))
+        if not current_row["new_duration"]: current_row["new_duration"] = _clean(item.get("new_duration"))
+
+        chg_type = _clean(item.get("change_type"))
+        old_val = _clean(item.get("old"))
+        new_val = _clean(item.get("new"))
+        current_row["changes_list"].append(f"{chg_type}: {old_val} -> {new_val}")
+
+    for row in grouped_changes.values():
+        row["change_type"] = ", ".join([c.split(":")[0] for c in row["changes_list"]])
+        if len(row["changes_list"]) > 1:
+            row["old"] = "Multiple"
+            row["new"] = "Multiple"
+        else:
+            parts = row["changes_list"][0].split("->")
+            if len(parts) == 2:
+                row["old"] = parts[0].split(":")[1].strip() if ":" in parts[0] else parts[0].strip()
+                row["new"] = parts[1].strip()
+            else:
+                row["old"] = "-"
+                row["new"] = "-"
         changed_rows.append(row)
 
     all_rows = behind + ahead + stage_rows + changed_rows + critical_path_rows
