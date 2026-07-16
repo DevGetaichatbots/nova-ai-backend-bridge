@@ -2094,6 +2094,12 @@ async def version_1_predictive_dashboard(
         predictive_model = predictive_result.get("model", "")
 
         if isinstance(predictive_json, dict):
+            summary_notes = predictive_json.setdefault("summary_notes", {})
+            if old_filename_clean:
+                summary_notes.setdefault("reporting_period_old", old_filename_clean)
+            if new_filename_clean:
+                summary_notes.setdefault("reporting_period_new", new_filename_clean)
+
             delayed_rows = predictive_json.get("delayed_activities", [])
             if not isinstance(delayed_rows, list):
                 delayed_rows = []

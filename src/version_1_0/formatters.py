@@ -3,6 +3,7 @@ from __future__ import annotations
 import html as _html
 import json as _json
 import re as _re
+from datetime import datetime
 from typing import Any
 
 from .adapters import adapt_health_dashboard, adapt_predictive_dashboard
@@ -50,12 +51,16 @@ def _change_type_cell(value: Any) -> str:
 CSS = """
 *{box-sizing:border-box}
 .ni-v1{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f2f7f7;color:#14212b;line-height:1.35;-webkit-font-smoothing:antialiased}
-.ni-header{height:62px;background:linear-gradient(90deg,#ffffff 0%,#f2fbfb 100%);border-bottom:1px solid #cfe4e7;display:flex;align-items:center;padding:0 22px;gap:12px}
+.ni-header{min-height:62px;background:linear-gradient(90deg,#ffffff 0%,#f2fbfb 100%);border-bottom:1px solid #cfe4e7;display:flex;align-items:flex-start;padding:12px 22px 14px;gap:12px}
 .ni-logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#00b8b8,#0284c7);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;box-shadow:0 8px 18px rgba(0,184,184,.18)}
 .ni-brand{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#008c8c;margin:0}
 .ni-title{font-size:18px;font-weight:900;margin:0;color:#14212b;letter-spacing:0}
 .ni-sub{font-size:11px;color:#71828f;margin:0}
-.ni-status{margin-left:auto;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase}
+.ni-header-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.ni-header-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.ni-header-meta span{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;background:#eaf8fa;border:1px solid #cfe4e7;font-size:10px;font-weight:800;color:#0f5f68}
+.ni-header-meta strong{font-weight:900}
+.ni-status{margin-left:auto;align-self:flex-start;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase}
 .ni-status.stable{background:#e6f7ef;color:#047857}.ni-status.at_risk,.ni-status.at-risk{background:#fff3d6;color:#b45309}.ni-status.critical{background:#ffe4e6;color:#be123c}
 .ni-kpis{display:grid;grid-template-columns:repeat(6,minmax(118px,1fr));gap:10px;padding:14px 18px;background:linear-gradient(180deg,#e9f7f8,#f5fafb);border-bottom:1px solid #cfe4e7}
 .ni-kpi{background:#fff;border:1px solid #dcebed;border-top:3px solid #00a7a7;border-radius:8px;padding:10px 12px;min-height:86px;box-shadow:0 8px 22px rgba(15,82,92,.06)}
@@ -817,10 +822,15 @@ def _render_payload(payload: dict, language: str) -> str:
 <div class="ni-v1">
   <header class="ni-header">
     <div class="ni-logo">NI</div>
-    <div>
+        <div class="ni-header-text">
       <p class="ni-brand">{_e(t(language, "brand"))}</p>
       <h1 class="ni-title">{_e(t(language, payload.get("title_key", "health_title")))}</h1>
       <p class="ni-sub">{_e(t(language, "subtitle"))}</p>
+            <div class="ni-header-meta">
+                <span>{_e(t(language, "analysis_generated"))}: <strong>{_e(datetime.now().strftime("%d-%m-%Y"))}</strong></span>
+                <span>{_e(t(language, "old_schedule_date"))}: <strong>{_e(payload.get("summary", {}).get("reporting_period_old") or "-")}</strong></span>
+                <span>{_e(t(language, "new_schedule_date"))}: <strong>{_e(payload.get("summary", {}).get("reporting_period_new") or "-")}</strong></span>
+            </div>
     </div>
     <div class="ni-status {status}">{_e(_status_label(payload, language))}</div>
   </header>

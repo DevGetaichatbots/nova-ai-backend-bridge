@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import re
 from collections import defaultdict
+from datetime import datetime
 from typing import Any
 
 
@@ -33,6 +34,38 @@ def _first_present(*values: Any) -> Any:
         if value is not None and str(value).strip() != "":
             return value
     return ""
+
+
+def _parse_date(value: Any) -> datetime | None:
+    text = _clean(value)
+    if not text:
+        return None
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%d.%m.%Y", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _format_date(value: datetime | None) -> str:
+    return value.strftime("%d-%m-%Y") if value else ""
+
+
+def _derive_schedule_date(rows: list[dict], side: str) -> str:
+    candidates: list[datetime] = []
+    side_keys = {
+        "old": ("old_start", "old_finish"),
+        "new": ("new_start", "new_finish"),
+    }.get(side, ())
+    for row in rows:
+        for key in side_keys:
+            parsed = _parse_date(row.get(key))
+            if parsed:
+                candidates.append(parsed)
+    if not candidates:
+        return ""
+    return _format_date(min(candidates))
 
 
 def _status_health(value: str) -> str:
@@ -354,7 +387,9 @@ def adapt_health_dashboard(data: dict, language: str = "en") -> dict:
         "total_activities": total,
         "added_activities": _si(sn.get("added_count") or es.get("added_activities")),
         "removed_activities": _si(sn.get("removed_count")),
-        "reporting_period": _clean(sn.get("reporting_period_new") or sn.get("reporting_period") or ""),
+        "reporting_period_old": _derive_schedule_date(changed_rows, "old") or _clean(sn.get("reporting_period_old") or ""),
+        "reporting_period": _derive_schedule_date(all_rows, "new") or _clean(sn.get("reporting_period_new") or sn.get("reporting_period") or ""),
+        "reporting_period_new": _derive_schedule_date(changed_rows, "new") or _clean(sn.get("reporting_period_new") or ""),
         "notes": _clean(es.get("health_override_reason") or es.get("data_quality_warning") or ""),
     }
     graph = _health_graph(data, progress_items)
