@@ -32,6 +32,21 @@ def _tone_class(tone: str) -> str:
     return "ni-neutral"
 
 
+def _change_type_cell(value: Any) -> str:
+    """Render a comma-separated change_type string as stacked lines.
+
+    Each property (e.g. 'Start Date', 'Finish Date') is placed in its own
+    <div> with white-space:nowrap so multi-word labels never break mid-word.
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    if len(parts) <= 1:
+        return _e(raw)
+    return "".join(f'<div style="white-space:nowrap">{_e(p)}</div>' for p in parts)
+
+
 CSS = """
 *{box-sizing:border-box}
 .ni-v1{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f2f7f7;color:#14212b;line-height:1.35;-webkit-font-smoothing:antialiased}
@@ -629,7 +644,7 @@ def _table_row(row: dict, language: str, variant: str) -> str:
             f'<td>{_e(row.get("old_start") or row.get("start_date"))}</td><td>{_e(row.get("new_start") or row.get("start_date"))}</td>'
             f'<td>{_e(row.get("old_finish") or row.get("finish_date"))}</td><td>{_e(row.get("new_finish") or row.get("finish_date"))}</td>'
             f'<td>{_e(row.get("old_duration"))}</td><td>{_e(row.get("new_duration") or row.get("duration"))}</td>'
-            f'<td>{_e(row.get("change_type"))}</td><td>{_e(row.get("old"))}</td><td>{_e(row.get("new"))}</td></tr>'
+            f'<td>{_change_type_cell(row.get("change_type"))}</td><td>{_e(row.get("old"))}</td><td>{_e(row.get("new"))}</td></tr>'
         )
     if variant == "critical_path":
         return (
