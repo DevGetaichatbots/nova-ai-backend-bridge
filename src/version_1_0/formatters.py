@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import html as _html
 import json as _json
+import logging
 import re as _re
 from datetime import datetime
 from typing import Any
 
 from .adapters import adapt_health_dashboard, adapt_predictive_dashboard
 from .localization import lang_code, t
+
+logger = logging.getLogger(__name__)
+logger.info("[version_1_0.formatters] module loaded — IDENTITY_FIX_2026_07_27 logging active")
 
 
 def _e(value: Any) -> str:
@@ -675,6 +679,10 @@ def _table_row(row: dict, language: str, variant: str) -> str:
 
 
 def _render_table(language: str, title_key: str, rows: list[dict], variant: str = "progress", count: int | None = None) -> str:
+    logger.info(
+        f"[version_1_0.formatters][_render_table] title_key={title_key!r} variant={variant!r} "
+        f"row_count={len(rows)} sample_ids={[r.get('id') for r in rows[:5]]!r}"
+    )
     if variant == "changed":
         headers = [
             _th(language, "id", "id"), _th(language, "task_name", "task"),
@@ -796,13 +804,15 @@ def _render_payload(payload: dict, language: str) -> str:
     summary_html = ""
     if payload.get("mode") == "health":
         summary_html = _render_summary(payload, language)
+        # Health section order: current extract (area_progress, rendered above)
+        # → critical activities → changed → behind → ahead → current stage analysis (bottom).
         table_html.extend(
             [
+                _render_table(language, "critical_path_table", tables.get("critical_path", []), "critical_path"),
+                _render_table(language, "changed_table", tables.get("changed", []), "changed", table_counts.get("changed_table")),
                 _render_table(language, "behind_table", tables.get("behind", [])),
                 _render_table(language, "ahead_table", tables.get("ahead", [])),
-                _render_table(language, "changed_table", tables.get("changed", []), "changed", table_counts.get("changed_table")),
                 _render_table(language, "stage_table", tables.get("stage", [])),
-                _render_table(language, "critical_path_table", tables.get("critical_path", []), "critical_path"),
             ]
         )
     else:

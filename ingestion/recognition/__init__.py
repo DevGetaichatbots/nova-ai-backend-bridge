@@ -1,4 +1,7 @@
-from ingestion.recognition.heuristics import HeuristicRecognizer
-from ingestion.recognition.ai_fallback import AIFallbackRecognizer
+try:
+    from .heuristics import HeuristicRecognizer
+    from .ai_fallback import AIFallbackRecognizer
+except Exception:  # pragma: no cover
+    pass
 
 __all__ = ["HeuristicRecognizer", "AIFallbackRecognizer"]

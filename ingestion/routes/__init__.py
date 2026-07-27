@@ -1,3 +1,6 @@
-from ingestion.routes.ingestion import router
+try:
+    from .ingestion import router
+except Exception:  # pragma: no cover
+    router = None  # type: ignore[assignment]
 
 __all__ = ["router"]

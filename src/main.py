@@ -2203,7 +2203,7 @@ _v2_configure(RouterDependencies(
     get_session_metadata=_get_session_metadata,
 ))
 app.include_router(_v2_router, prefix="/v2")
-# ─────────────────────────────────────────────────────────────────────────────
+
 
 if __name__ == "__main__":
     import uvicorn

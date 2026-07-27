@@ -873,7 +873,7 @@ Each chunk begins with: "FORMAT: NUSF CSV — each row = one activity."
 
 | Field | Meaning | Notes |
 |-------|---------|-------|
-| `source_id` | Task identifier | Use as the `id` field in your JSON output. Never empty. |
+| `source_id` | Task identifier (content-hash; stable for the same activity across runs) | Use as the `id` field in your JSON output. Never empty. The hash is content-derived: same logical input → same hash. |
 | `name` | Task name / description | Already human-readable |
 | `planned_start` | Planned start date | dd-mm-yyyy |
 | `planned_finish` | Planned finish date | dd-mm-yyyy |
@@ -898,7 +898,7 @@ EXCLUDE from analysis:
 
 Milestones (`activity_type = MILESTONE`, duration_hours = 0) with `planned_start` < reference_date and 0% are delayed — include them.
 
-Task ID: use `source_id` as the `id` field. NEVER leave empty. NEVER use row numbers.
+Task ID: use `source_id` as the `id` field. NEVER leave empty. NEVER use row numbers. The source_id is a content-derived hash; treat it as the unique activity identifier.
 Area / zone: use `discipline` column value, or parse from `wbs_code` if `discipline` is empty.
 Responsible party: use `discipline` column value.
 
@@ -979,9 +979,9 @@ Do NOT use any other date. Do NOT use today's date. Use: {reference_date}
         if data_format == "nusf":
             critical_instructions = """\
 CRITICAL INSTRUCTIONS (NUSF format):
-1. The data above is pre-normalized NUSF CSV. Every row = one activity. No OCR artefacts.
+1. The data above is pre-normalized NUSF CSV (v2.0). Every row = one activity. No OCR artefacts.
 2. Column headers: source_id | name | planned_start | planned_finish | percent_complete | activity_type | wbs_code | discipline | duration_hours | actual_start | actual_finish
-3. Use the "source_id" column value as the "id" field in your JSON output. Never leave it empty.
+3. Use the "source_id" column value as the "id" field in your JSON output. Never leave it empty. The source_id is a content-derived hash; same logical activity → same hash.
 4. Use "percent_complete" (0.0–100.0) as the progress indicator.
 5. Use "planned_start" (dd-mm-yyyy) as the start date for overdue calculations.
 

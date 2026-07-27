@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 import math
 import re
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
+
+logger = logging.getLogger(__name__)
+logger.info("[version_1_0.adapters] module loaded — IDENTITY_FIX_2026_07_27 logging active")
 
 
 def _sf(value: Any, default: float = 0.0) -> float:
@@ -102,15 +106,27 @@ def _row_location(item: dict) -> dict:
     }
 
 
+_activity_row_log_count = 0
+_ACTIVITY_ROW_LOG_LIMIT = 8
+
+
 def _activity_row(item: dict, *, task_key: str = "activity") -> dict:
+    global _activity_row_log_count
     loc = _row_location(item)
     task_name = _clean(item.get(task_key) or item.get("task_name") or item.get("name"))
     trade = _clean(item.get("trade") or item.get("trade_code") or item.get("resource") or item.get("discipline"))
     if not trade:
         trade = _infer_trade(task_name, item.get("task_group_name"), item.get("discipline"))
     location_text = loc["location"] or " / ".join(p for p in [loc["area"], loc["floor"], loc["phase"]] if p)
+    out_id = _clean(item.get("id") or item.get("source_id"))
+    if _activity_row_log_count < _ACTIVITY_ROW_LOG_LIMIT:
+        _activity_row_log_count += 1
+        logger.info(
+            f"[version_1_0.adapters][_activity_row #{_activity_row_log_count}] "
+            f"task={task_name!r} input_id={item.get('id')!r} input_source_id={item.get('source_id')!r} -> output_id={out_id!r}"
+        )
     return {
-        "id": _clean(item.get("id") or item.get("source_id")),
+        "id": out_id,
         "task_name": task_name,
         "phase": loc["phase"],
         "area": loc["area"],
@@ -323,13 +339,26 @@ def adapt_health_dashboard(data: dict, language: str = "en") -> dict:
     ponr_items = data.get("point_of_no_return", [])
     critical_path_items = data.get("critical_path_activities", [])
 
+    logger.info(
+        f"[version_1_0.adapters][adapt_health_dashboard] input counts: "
+        f"progress_vs_expected={len(progress_items)} stage_mismatch={len(stage_items)} "
+        f"point_of_no_return={len(ponr_items)} critical_path_activities={len(critical_path_items)} "
+        f"changes={len(changed.get('changes', []))} "
+        f"sample_progress_id={progress_items[0].get('id') if progress_items else None!r}"
+    )
+
     behind = [_activity_row(i) for i in progress_items if str(i.get("status", "")).lower() == "behind"]
     ahead = [_activity_row(i) for i in progress_items if str(i.get("status", "")).lower() == "ahead"]
     stage_rows = [_activity_row(i) for i in stage_items]
     critical_path_rows = [_activity_row(i) for i in critical_path_items]
     changed_rows = []
     grouped_changes = {}
-    for item in changed.get("changes", []):
+    change_items = changed.get("changes", [])
+    logger.info(
+        f"[version_1_0.adapters][changed_activities] {len(change_items)} raw change records; "
+        f"sample_act_id_source={[ (c.get('id'), c.get('activity')) for c in change_items[:5] ]!r}"
+    )
+    for item in change_items:
         act_id = item.get("id") or item.get("activity")
         if act_id not in grouped_changes:
             row = _activity_row(item)

@@ -1015,7 +1015,7 @@ Each chunk begins with: "FORMAT: NUSF CSV — each row = one activity."
 
 | Field | Meaning | Notes |
 |-------|---------|-------|
-| `source_id` | Task identifier (from original format) | Use to match tasks between OLD and NEW |
+| `source_id` | Task identifier (content-hash; stable for the same activity across runs of the same input) | Use to match tasks between OLD and NEW. The hash is content-derived: same logical input → same hash. |
 | `name` | Task name / description | Already human-readable |
 | `planned_start` | Planned start date | dd-mm-yyyy |
 | `planned_finish` | Planned finish date | dd-mm-yyyy |

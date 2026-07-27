@@ -188,6 +188,7 @@ class NormalizationEngine:
 
         _skip_empty = 0
         _skip_no_date = 0
+        _skip_partial_date = 0
 
         for row_idx, row in enumerate(rows):
             raw_name = _get_val(row, headers, name_col)
@@ -209,10 +210,18 @@ class NormalizationEngine:
                 )
                 continue
 
-            if not planned_start:
-                planned_start = planned_finish
-            if not planned_finish:
-                planned_finish = planned_start
+            if not planned_start or not planned_finish:
+                # Exactly one of start/finish is missing here (both-missing was
+                # already skipped above). Previously this silently set the
+                # missing date equal to the one present, producing a false
+                # start == finish (zero-duration, "complete") activity. Skip
+                # instead of fabricating a date the source data doesn't have.
+                _skip_partial_date += 1
+                logger.debug(
+                    f"[{filename}] Row {row_idx} skipped — only one of start/finish present "
+                    f"(start={raw_start!r}, finish={raw_finish!r}, name={raw_name[:40]!r})"
+                )
+                continue
 
             date_swapped = False
             if planned_start > planned_finish:
@@ -232,9 +241,18 @@ class NormalizationEngine:
             raw_location_path = _get_val(row, headers, area_col)
             if recognition.match_key == "name_location":
                 raw_source_id = f"{_stable_text(raw_name)} | {_stable_text(raw_location_path)}"
+            # match_key "id"/"row_index" means the source only exposes a bare
+            # positional column (MS Project's "ID", or no id column at all) —
+            # that renumbers whenever tasks are added/reordered, so it is not
+            # safe as a cross-version join key even though it looks like one.
+            # Only genuinely durable sources (Entydigt/Unique Id, TBS/WBS code,
+            # or the name+location composite) get to populate stable_key; a
+            # positional id is kept in source_id for display only.
+            id_is_durable = recognition.match_key in ("entydigt_id", "tbs", "name_location")
             if not raw_source_id:
                 raw_source_id = str(row_idx + 1)
-            stable_key = raw_source_id
+                id_is_durable = False
+            stable_key = raw_source_id if id_is_durable else ""
 
             raw_wbs = _get_val(row, headers, wbs_col)
             raw_disc = _get_val(row, headers, disc_col)
@@ -395,6 +413,7 @@ class NormalizationEngine:
             f"[{filename}] Normalized: {len(activities)} activities, "
             f"{len(relationships)} relationships, "
             f"skipped_empty={_skip_empty}, skipped_no_date={_skip_no_date}, "
+            f"skipped_partial_date={_skip_partial_date}, "
             f"date_swaps={swapped}, "
             f"quality={quality_score:.2f}, "
             f"elapsed={metadata.parse_duration_seconds}s"
@@ -495,7 +514,7 @@ def to_nusf_chunks(schedule: NormalizedSchedule) -> List[Dict[str, Any]]:
         for act in batch:
             compact_lines.append(_serialize_row([
                 act.source_id,
-                act.stable_key or act.source_id,
+                act.stable_key or "",
                 act.name,
                 _fmt_dt(act.planned_start),
                 _fmt_dt(act.planned_finish),
