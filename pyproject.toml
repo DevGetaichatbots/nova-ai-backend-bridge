@@ -15,6 +15,7 @@ dependencies = [
     "mpxj>=16.2.0",
     "openai>=2.16.0",
     "openpyxl>=3.1.0",
+    "pdfplumber>=0.11.0",
     "pgvector>=0.4.2",
     "psycopg2-binary>=2.9.11",
     "pydantic>=2.12.5",

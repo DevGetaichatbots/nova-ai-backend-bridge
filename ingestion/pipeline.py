@@ -72,6 +72,51 @@ class IngestionPipeline:
             filename = file_path.name
         return self.run_from_bytes(file_path.read_bytes(), filename)
 
+    def _recognize_and_normalize(self, headers, rows, extracted, source_system, filename):
+        """Run column recognition (+ AI fallback), build chunks, and normalize.
+
+        Returns (recognition, chunks, schedule). Factored out so it can run twice
+        on a PDF — once on OCR output, once on the text-layer retry.
+        """
+        recognition = self._heuristics.recognize(headers)
+        logger.info(f"[{filename}] Heuristic recognition: {recognition}")
+
+        if recognition.ai_needed:
+            logger.info(
+                f"[{filename}] Critical fields missing — invoking AI fallback recognizer. "
+                f"Headers sent: {headers}"
+            )
+            ai_map = self._ai_fallback.recognize(headers)
+            logger.info(f"[{filename}] AI fallback returned: {ai_map}")
+            if ai_map:
+                merged_map = dict(recognition.column_map)
+                for role, col in ai_map.items():
+                    if role not in merged_map:
+                        merged_map[role] = col
+                recognition = RecognitionResult(
+                    column_map=merged_map,
+                    match_key=recognition.match_key,
+                    format_label=recognition.format_label,
+                    ai_needed=True,
+                    confidence=max(recognition.confidence, 0.5),
+                )
+                logger.info(
+                    f"[{filename}] After AI fallback — column_map: {recognition.column_map}"
+                )
+
+        # Always produce compact CSV chunks from raw OCR/CSV rows — this mirrors
+        # the existing src/pdf_processor behaviour and keeps LLM agents working
+        # even when structured normalization cannot fully parse the headers.
+        chunks = self._normalizer.to_compact_csv_chunks(headers, rows, filename)
+
+        schedule = self._normalizer.normalize(
+            extracted=extracted,
+            recognition=recognition,
+            source_system=source_system,
+            filename=filename,
+        )
+        return recognition, chunks, schedule
+
     def run_from_bytes(
         self,
         file_bytes: bytes,
@@ -141,43 +186,38 @@ class IngestionPipeline:
                 f"The file may be empty or in an unrecognized layout."
             )
 
-        recognition = self._heuristics.recognize(headers)
-        logger.info(f"[{filename}] Heuristic recognition: {recognition}")
-
-        if recognition.ai_needed:
-            logger.info(
-                f"[{filename}] Critical fields missing — invoking AI fallback recognizer. "
-                f"Headers sent: {headers}"
-            )
-            ai_map = self._ai_fallback.recognize(headers)
-            logger.info(f"[{filename}] AI fallback returned: {ai_map}")
-            if ai_map:
-                merged_map = dict(recognition.column_map)
-                for role, col in ai_map.items():
-                    if role not in merged_map:
-                        merged_map[role] = col
-                recognition = RecognitionResult(
-                    column_map=merged_map,
-                    match_key=recognition.match_key,
-                    format_label=recognition.format_label,
-                    ai_needed=True,
-                    confidence=max(recognition.confidence, 0.5),
-                )
-                logger.info(
-                    f"[{filename}] After AI fallback — column_map: {recognition.column_map}"
-                )
-
-        # Always produce compact CSV chunks from raw OCR/CSV rows — this mirrors
-        # the existing src/pdf_processor behaviour and keeps LLM agents working
-        # even when structured normalization cannot fully parse the headers.
-        chunks = self._normalizer.to_compact_csv_chunks(headers, rows, filename)
-
-        schedule = self._normalizer.normalize(
-            extracted=extracted,
-            recognition=recognition,
-            source_system=source_system,
-            filename=filename,
+        recognition, chunks, schedule = self._recognize_and_normalize(
+            headers, rows, extracted, source_system, filename
         )
+
+        # PDF text-layer retry: garbled OCR on large exports can yield rows that
+        # normalize to 0 activities (wrong column mapping). When that happens,
+        # rebuild from the embedded text layer and retry once. (Empty-OCR PDFs
+        # are already switched to the text layer inside the extractor.)
+        if not schedule.activities and source_system == "PDF" and hasattr(
+            extractor, "extract_text_layer"
+        ):
+            tl_extracted = extractor.extract_text_layer(file_bytes, filename)
+            if tl_extracted and tl_extracted.get("rows"):
+                logger.info(
+                    f"[{filename}] 0 activities from OCR — retrying with "
+                    f"{len(tl_extracted['rows'])} text-layer rows"
+                )
+                tl_recognition, tl_chunks, tl_schedule = self._recognize_and_normalize(
+                    tl_extracted["headers"], tl_extracted["rows"],
+                    tl_extracted, source_system, filename
+                )
+                if tl_schedule.activities:
+                    headers, rows, extracted = (
+                        tl_extracted["headers"], tl_extracted["rows"], tl_extracted
+                    )
+                    recognition, chunks, schedule = (
+                        tl_recognition, tl_chunks, tl_schedule
+                    )
+                    logger.info(
+                        f"[{filename}] Text-layer retry succeeded: "
+                        f"{len(schedule.activities)} activities"
+                    )
 
         if not schedule.activities:
             if not chunks:

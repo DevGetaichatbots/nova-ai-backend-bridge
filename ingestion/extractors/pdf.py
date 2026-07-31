@@ -153,18 +153,31 @@ def _parse_ocr_tables(result: Dict, filename: str) -> List[Dict]:
         cells_data = table.get("cells", [])
 
         grid = [["" for _ in range(col_count)] for _ in range(row_count)]
+        nonempty_cell_content = 0
+        max_rs = max_cs = 1
         for cell in cells_data:
             ri = cell.get("rowIndex", 0)
             ci = cell.get("columnIndex", 0)
             content = cell.get("content", "")
             rs = cell.get("rowSpan", 1)
             cs = cell.get("columnSpan", 1)
+            if content and content.strip():
+                nonempty_cell_content += 1
+            max_rs = max(max_rs, rs)
+            max_cs = max(max_cs, cs)
             if 0 <= ri < row_count and 0 <= ci < col_count:
                 grid[ri][ci] = content
                 for r in range(ri, min(ri + rs, row_count)):
                     for c in range(ci, min(ci + cs, col_count)):
                         if r != ri or c != ci:
                             grid[r][c] = ""
+
+        grid_nonempty = sum(1 for row in grid for v in row if str(v).strip())
+        logger.info(
+            f"[{filename}] Grid diag table[{ti}]: {row_count}x{col_count}, "
+            f"cells={len(cells_data)}, cell_content_nonempty={nonempty_cell_content}, "
+            f"grid_nonempty={grid_nonempty}, max_rowSpan={max_rs}, max_colSpan={max_cs}"
+        )
 
         simple_rows = [[cell for cell in row] for row in grid]
         structured.append({
@@ -292,6 +305,151 @@ def _tables_to_headers_and_rows(tables: List[Dict], filename: str):
     return canonical_headers, all_data_rows
 
 
+# ----------------------------------------------------------------------
+# Embedded-text-layer fallback
+# ----------------------------------------------------------------------
+# Azure Document Intelligence fails on very large digital PDFs (e.g. A0
+# MS-Project "Samlet tidsplan" exports): it detects the table grid but
+# downsamples the page so hard the body text is unreadable, returning
+# populated header cells and empty data cells → 0 usable rows. These PDFs
+# carry a perfect embedded text layer, so when OCR yields nothing we read
+# the text layer directly and rebuild the columns from word coordinates.
+
+_TEXTLAYER_HEADERS = [
+    "Id", "Opgavenavn", "Varighed", "Startdato", "Slutdato",
+    "% arbejde færdigt", "Foregående opgaver",
+]
+_DATE_TOKEN_RE = re.compile(r"\d{1,2}-\d{1,2}-\d{2,4}")
+# Header labels that are reliably isolated in MS Project exports (Danish + English).
+_ANCHOR_LABELS = {
+    "id": ("id",),
+    "duration": ("varighed", "duration"),
+    "start": ("startdato", "start"),
+    "finish": ("slutdato", "finish"),
+    "pct": ("%",),
+}
+_GANTT_MONTHS = {
+    "jan", "feb", "mar", "apr", "maj", "may", "jun",
+    "jul", "aug", "sep", "okt", "oct", "nov", "dec",
+}
+
+
+def _cluster_word_rows(words: List[dict], y_tol: float = 3.0) -> List[List[dict]]:
+    rows: List[List] = []
+    for w in sorted(words, key=lambda w: (w["top"], w["x0"])):
+        if rows and abs(w["top"] - rows[-1][0]) <= y_tol:
+            rows[-1][1].append(w)
+        else:
+            rows.append([w["top"], [w]])
+    return [sorted(ws, key=lambda w: w["x0"]) for _, ws in rows]
+
+
+def _find_column_anchors(words: List[dict]):
+    """Locate header-word x-positions and where the Gantt chart begins."""
+    top_band = [w for w in words if w["top"] < 130]
+    anchors: Dict[str, float] = {}
+    for role, labels in _ANCHOR_LABELS.items():
+        for w in top_band:
+            if w["text"].strip().lower() in labels and role not in anchors:
+                anchors[role] = w["x0"]
+                break
+    gantt_x = min(
+        (w["x0"] for w in top_band if w["text"].strip().lower() in _GANTT_MONTHS),
+        default=float("inf"),
+    )
+    return anchors, gantt_x
+
+
+def _extract_text_layer(pdf_bytes: bytes, filename: str):
+    """
+    Rebuild schedule rows from the PDF's embedded text layer by bucketing
+    words into columns using coordinates derived from the header row.
+    Returns (headers, rows). Returns ([], []) if no recognizable schedule
+    table is found — the caller then keeps the (empty) OCR result.
+    """
+    try:
+        import pdfplumber
+    except ImportError:
+        logger.warning(f"[{filename}] pdfplumber not installed — text-layer fallback unavailable")
+        return [], []
+
+    all_rows: List[List[str]] = []
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            for page in pdf.pages:
+                words = page.extract_words()
+                anchors, gantt_x = _find_column_anchors(words)
+                if not {"id", "duration", "start", "finish"} <= anchors.keys():
+                    continue  # header row not found on this page
+
+                id_x = anchors["id"]
+                dur_x = anchors["duration"]
+                start_x = anchors["start"]
+                finish_x = anchors["finish"]
+                pct_x = anchors.get("pct", finish_x + 25)
+                # Column x-ranges [lo, hi). Words are assigned by their CENTER
+                # so sub-pixel boundary overlaps don't leak into a neighbour.
+                # "left" spans Id + any secondary id/task-mode columns + name;
+                # it's split apart per row below because the Id value's
+                # indentation and the presence of an "Entydigt id" column vary
+                # between exports.
+                cols = [
+                    ("left", id_x - 8, dur_x),
+                    ("dur", dur_x, start_x),
+                    ("start", start_x, finish_x),
+                    ("finish", finish_x, pct_x),
+                    ("pct", pct_x, pct_x + 26),
+                    ("pred", pct_x + 26, gantt_x),
+                ]
+
+                for row_words in _cluster_word_rows(words):
+                    if row_words and row_words[0]["top"] < 125:
+                        continue  # header band
+                    buckets: Dict[str, List[str]] = {k: [] for k, _, _ in cols}
+                    for w in row_words:
+                        cx = (w["x0"] + w["x1"]) / 2
+                        for k, lo, hi in cols:
+                            if lo <= cx < hi:
+                                buckets[k].append(w["text"])
+                                break
+
+                    # First token is the MS Project Id; drop any following
+                    # standalone integer ids (e.g. "Entydigt id"); rest = name.
+                    left = buckets["left"]
+                    if not left or not left[0].isdigit():
+                        continue  # wrapped continuation line / non-task row
+                    rid = left[0]
+                    name_tokens = left[1:]
+                    while name_tokens and name_tokens[0].isdigit():
+                        name_tokens.pop(0)
+                    name = " ".join(name_tokens).strip()
+                    if not name:
+                        continue
+
+                    dur = " ".join(buckets["dur"]).strip()
+                    dates = _DATE_TOKEN_RE.findall(" ".join(buckets["start"] + buckets["finish"]))
+                    start = dates[0] if len(dates) >= 1 else ""
+                    finish = dates[1] if len(dates) >= 2 else ""
+                    pct = " ".join(buckets["pct"]).strip()
+                    # Predecessors are numeric/`;`-separated; strip trailing
+                    # resource labels (letters) that abut the column.
+                    pred = re.sub(r"[A-Za-zÆØÅæøå();].*$", "", " ".join(buckets["pred"])).strip()
+
+                    all_rows.append([rid, name, dur, start, finish, pct, pred])
+    except Exception as e:
+        logger.warning(f"[{filename}] Text-layer extraction failed: {e}")
+        return [], []
+
+    if not all_rows:
+        return [], []
+
+    logger.info(
+        f"[{filename}] Text-layer fallback recovered {len(all_rows)} rows "
+        f"from embedded text layer"
+    )
+    return list(_TEXTLAYER_HEADERS), all_rows
+
+
 class PDFExtractor(BaseExtractor):
     def __init__(self):
         self._endpoint = os.environ.get("AZURE_DOC_INTELLIGENCE_ENDPOINT", "").rstrip("/")
@@ -299,6 +457,24 @@ class PDFExtractor(BaseExtractor):
 
     def extract(self, file_path: Path) -> Dict[str, Any]:
         return self.extract_from_bytes(file_path.read_bytes(), file_path.name)
+
+    def extract_text_layer(self, pdf_bytes: bytes, filename: str) -> Optional[Dict[str, Any]]:
+        """
+        Rebuild the schedule from the PDF's embedded text layer, bypassing OCR.
+        Returns an extraction dict (same shape as extract_from_bytes) or None if
+        no recognizable schedule table is found. Used by the pipeline as a
+        retry when OCR-based normalization yields no activities.
+        """
+        headers, rows = _extract_text_layer(pdf_bytes, filename)
+        if not rows:
+            return None
+        return {
+            "source_system": self.source_system(),
+            "headers": headers,
+            "rows": rows,
+            "file_name": filename,
+            "raw_text": "",
+        }
 
     def extract_from_bytes(self, pdf_bytes: bytes, filename: str) -> Dict[str, Any]:
         if not self._endpoint or not self._key:
@@ -326,6 +502,22 @@ class PDFExtractor(BaseExtractor):
             f"[{filename}] OCR complete: {len(tables)} tables, "
             f"{len(headers)} cols, {len(rows)} data rows"
         )
+
+        # OCR-first, text-layer fallback: Azure fails on very large digital
+        # PDFs (e.g. A0 landscape), returning headers but no data rows at all.
+        # When OCR extracts literally nothing, rebuild from the embedded text
+        # layer. (The garbled-OCR case — rows present but unparseable — is
+        # handled downstream in the pipeline on a 0-activities result.)
+        if not rows:
+            logger.warning(
+                f"[{filename}] OCR produced 0 data rows — trying embedded text-layer fallback"
+            )
+            tl_headers, tl_rows = _extract_text_layer(pdf_bytes, filename)
+            if tl_rows:
+                headers, rows = tl_headers, tl_rows
+                logger.info(
+                    f"[{filename}] Using text-layer result: {len(headers)} cols, {len(rows)} rows"
+                )
 
         return {
             "source_system": self.source_system(),
