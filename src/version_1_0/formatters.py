@@ -686,8 +686,8 @@ def _render_table(language: str, title_key: str, rows: list[dict], variant: str 
     if variant == "changed":
         headers = [
             _th(language, "id", "id"), _th(language, "task_name", "task"),
-            _th(language, "phase_col", "phase"), _th(language, "area_col", "area"),
-            _th(language, "resource_col", "resource"), _th(language, "old_start_col", "actual"),
+            _th(language, "phase_col", "phase"), _th(language, "building", "area"),
+            _th(language, "trade", "resource"), _th(language, "old_start_col", "actual"),
             _th(language, "new_start_col", "expected"), _th(language, "old_finish_col", "deviation"),
             _th(language, "new_finish_col", "days"), _th(language, "old_duration_col", "float"),
             _th(language, "new_duration_col", "resource"), f"<th>{_e(t(language, 'change_col'))}</th>",
@@ -696,24 +696,24 @@ def _render_table(language: str, title_key: str, rows: list[dict], variant: str 
     elif variant == "critical_path":
         headers = [
             _th(language, "id", "id"), _th(language, "task_name", "task"),
-            _th(language, "phase_col", "phase"), _th(language, "area_col", "area"),
-            _th(language, "resource_col", "resource"), _th(language, "start_col", "actual"),
+            _th(language, "phase_col", "phase"), _th(language, "building", "area"),
+            _th(language, "trade", "resource"), _th(language, "start_col", "actual"),
             _th(language, "finish_col", "expected"), _th(language, "float_col", "float"),
             _th(language, "deviation_col", "deviation"),
         ]
     elif variant == "delayed":
         headers = [
             _th(language, "id", "id"), _th(language, "task_name", "task"),
-            _th(language, "phase_col", "phase"), _th(language, "area_col", "area"),
-            _th(language, "resource_col", "resource"), _th(language, "start_col", "actual"),
+            _th(language, "phase_col", "phase"), _th(language, "building", "area"),
+            _th(language, "trade", "resource"), _th(language, "start_col", "actual"),
             _th(language, "finish_col", "expected"), _th(language, "duration_col", "deviation"),
             _th(language, "days_overdue", "days"), _th(language, "priority", "resource"),
         ]
     else:
         headers = [
             _th(language, "id", "id"), _th(language, "task_name", "task"),
-            _th(language, "phase_col", "phase"), _th(language, "area_col", "area"),
-            _th(language, "resource_col", "resource"), _th(language, "actual_col", "actual"),
+            _th(language, "phase_col", "phase"), _th(language, "building", "area"),
+            _th(language, "trade", "resource"), _th(language, "actual_col", "actual"),
             _th(language, "expected_col", "expected"), _th(language, "deviation_col", "deviation"),
             _th(language, "status_col", "resource"),
         ]
