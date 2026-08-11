@@ -4,7 +4,7 @@ NUSF V2 Ingestion Routes
 FastAPI router for /v2/ endpoints. ZERO imports from src/.
 
 All downstream dependencies (vector_store_manager, save_session_metadata,
-predictive_agent, format_predictive_as_html) are injected at configuration
+rag_agent, etc.) are injected at configuration
 time via configure() before the router is mounted. This keeps ingestion/
 fully self-contained.
 
@@ -14,8 +14,7 @@ Wire-up in src/main.py:
     _v2_configure(RouterDependencies(
         vector_store_manager=...,
         save_session_metadata=...,
-        predictive_agent=...,
-        format_html=...,
+        rag_agent=...,
     ))
     app.include_router(_v2_router, prefix="/v2")
 
@@ -24,8 +23,7 @@ Endpoints:
   POST   /v2/inspect                         — diagnose a file through the pipeline
   POST   /v2/upload                          — two-schedule comparison upload
   GET    /v2/upload/progress/{upload_id}     — poll upload progress
-  POST   /v2/predictive                      — single-schedule Nova Insight analysis
-  GET    /v2/predictive/progress/{analysis_id} — poll predictive progress
+  POST   /v2/query                           — comparison query against NUSF sessions
 """
 from __future__ import annotations
 import asyncio
@@ -36,7 +34,6 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any, Callable, Dict, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -52,7 +49,6 @@ _executor = ThreadPoolExecutor(max_workers=4)
 _pipeline = IngestionPipeline()
 
 _v2_upload_progress: Dict[str, Dict[str, Any]] = {}
-_v2_predictive_progress: Dict[str, Dict[str, Any]] = {}
 _progress_lock = threading.Lock()
 
 _ALLOWED_EXTENSIONS = {".pdf", ".csv", ".xlsx", ".mpp", ".xml"}
@@ -66,8 +62,6 @@ class RouterDependencies:
     """
     vector_store_manager: Any
     save_session_metadata: Callable
-    predictive_agent: Any
-    format_html: Callable
     rag_agent: Any = None
     format_comparison_html: Callable = None
     get_session_metadata: Callable = None
@@ -102,23 +96,6 @@ def _schedule_cleanup(store: Dict, key: str, delay: int = 300):
         time.sleep(delay)
         store.pop(key, None)
     threading.Thread(target=_clean, daemon=True).start()
-
-
-def _extract_ref_date(name: str) -> Optional[str]:
-    patterns = [
-        (r"(\d{4})-(\d{2})-(\d{2})", lambda m: datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))),
-        (r"(\d{2})-(\d{2})-(\d{4})", lambda m: datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)))),
-        (r"(\d{2})\.(\d{2})\.(\d{4})", lambda m: datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)))),
-        (r"(\d{4})(\d{2})(\d{2})", lambda m: datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))),
-    ]
-    for pattern, parser in patterns:
-        m = re.search(pattern, name)
-        if m:
-            try:
-                return parser(m).strftime("%d-%m-%Y")
-            except ValueError:
-                continue
-    return None
 
 
 def _issues_to_list(issues: list) -> list:
@@ -364,203 +341,6 @@ async def v2_get_upload_progress(upload_id: str):
         progress = _v2_upload_progress.get(upload_id)
     if not progress:
         raise HTTPException(status_code=404, detail="Upload ID not found")
-    return progress
-
-
-@router.post("/predictive")
-async def v2_predictive_analysis(
-    schedule: UploadFile = File(...),
-    language: str = Form("en"),
-    format: str = Form("html"),
-    analysis_id: str = Form(None),
-):
-    """
-    Upload a single schedule through the NUSF pipeline for Nova Insight predictive analysis.
-    Supports PDF, CSV, and Excel (.xlsx). Returns analysis_id for progress polling.
-    """
-    if not analysis_id:
-        analysis_id = str(uuid.uuid4())[:12]
-
-    filename = schedule.filename or "schedule.pdf"
-    filename_clean = filename.rsplit(".", 1)[0]
-
-    if not _is_allowed(filename):
-        raise HTTPException(status_code=400, detail="Only PDF, CSV, Excel (.xlsx), Microsoft Project (.mpp), and MS Project XML (.xml) files are accepted")
-
-    file_bytes = await schedule.read()
-    reference_date = _extract_ref_date(filename_clean)
-
-    with _progress_lock:
-        _v2_predictive_progress[analysis_id] = {
-            "analysis_id": analysis_id,
-            "stage": "received",
-            "step": 1,
-            "total_steps": 6,
-            "message": "Received — starting NUSF pipeline...",
-            "timestamp": time.time(),
-        }
-
-    loop = asyncio.get_event_loop()
-    start_time = time.time()
-
-    def _set_progress(stage: str, message: str, step: int, detail: str = None):
-        with _progress_lock:
-            _v2_predictive_progress[analysis_id].update(
-                stage=stage, message=message, step=step,
-                timestamp=time.time(), detail=detail,
-            )
-
-    async def _background():
-        try:
-            deps = _require_deps()
-
-            _set_progress("pipeline", "Running NUSF ingestion pipeline...", 2)
-            try:
-                schedule_obj, raw_chunks = await loop.run_in_executor(
-                    _executor,
-                    lambda: _pipeline.run_from_bytes(file_bytes, filename),
-                )
-            except PipelineError as e:
-                logger.error(f"[v2/predictive] Pipeline error: {e}")
-                with _progress_lock:
-                    _v2_predictive_progress[analysis_id].update(
-                        stage="error",
-                        step=-1,
-                        message=str(e),
-                        error=str(e),
-                        validation_issues=_issues_to_list(e.issues),
-                        timestamp=time.time(),
-                    )
-                _schedule_cleanup(_v2_predictive_progress, analysis_id, 120)
-                return
-            except Exception as e:
-                logger.exception(f"[v2/predictive] Unexpected error: {type(e).__name__}: {e}")
-                with _progress_lock:
-                    _v2_predictive_progress[analysis_id].update(
-                        stage="error",
-                        step=-1,
-                        message=f"{type(e).__name__}: {str(e)}",
-                        error=f"{type(e).__name__}: {str(e)}",
-                        timestamp=time.time(),
-                    )
-                _schedule_cleanup(_v2_predictive_progress, analysis_id, 120)
-                return
-
-            chunks = to_nusf_chunks(schedule_obj) if schedule_obj.activities else raw_chunks
-            warnings = [i for i in schedule_obj.validation_issues if i.level != "ERROR"]
-            row_count = schedule_obj.metadata.total_activities
-            logger.info(
-                f"[v2/predictive] Pipeline complete: {row_count} activities, "
-                f"{len(chunks)} chunks, {len(warnings)} warnings"
-            )
-
-            _set_progress(
-                "extracting",
-                f"Found {row_count} activities via NUSF ({schedule_obj.metadata.source_system})",
-                3,
-                detail=f"{row_count} activities",
-            )
-
-            MAX_CONTEXT_BYTES = 1_900_000
-            table_chunks = [c for c in chunks if c.get("metadata", {}).get("type") == "table"]
-            preamble = f"[{filename_clean}] — COMPLETE SCHEDULE DATA\nScan EVERY row for delayed activities.\n\n"
-            budget = MAX_CONTEXT_BYTES - len(preamble.encode("utf-8"))
-            included_parts: list = []
-            current_bytes = 0
-            for chunk in table_chunks:
-                cb = len(chunk["content"].encode("utf-8")) + 1
-                if current_bytes + cb > budget:
-                    break
-                included_parts.append(chunk["content"])
-                current_bytes += cb
-            context = preamble + "\n".join(included_parts) + "\n"
-
-            _set_progress("analyzing", "Nova Insight is analyzing your schedule...", 4)
-
-            predictive_result = await loop.run_in_executor(
-                _executor,
-                lambda: deps.predictive_agent.analyze(
-                    context=context,
-                    user_query=(
-                        "Execute full two-phase analysis: detect ALL delayed activities "
-                        "(Phase 1) and produce decision support with root cause analysis, "
-                        "priority ranking, action recommendations, and resource assessment (Phase 2)"
-                    ),
-                    language=language,
-                    schedule_filename=filename_clean,
-                    reference_date=reference_date,
-                    data_format="nusf",
-                ),
-            )
-
-            predictive_json = predictive_result.get("predictive_json")
-            predictive_text = predictive_result.get("predictive_insights", "")
-            predictive_status = predictive_result.get("status", "error")
-
-            _set_progress("formatting", "Building report...", 5)
-
-            if format == "html" and predictive_json:
-                predictive_text = deps.format_html(predictive_json, language)
-            elif format == "html" and predictive_text:
-                predictive_text = deps.format_html(predictive_text, language)
-
-            elapsed = time.time() - start_time
-
-            with _progress_lock:
-                _v2_predictive_progress[analysis_id] = {
-                    "analysis_id": analysis_id,
-                    "stage": "complete",
-                    "step": 6,
-                    "total_steps": 6,
-                    "message": "Analysis ready",
-                    "timestamp": time.time(),
-                    "validation_issues": _issues_to_list(warnings),
-                    "result": {
-                        "predictive_insights": predictive_text,
-                        "predictive_status": predictive_status,
-                        "filename": filename,
-                        "reference_date": reference_date,
-                        "format": format,
-                        "processing_time_seconds": round(elapsed, 1),
-                        "pipeline": "NUSF",
-                        "nusf_activities": row_count,
-                        "nusf_quality": schedule_obj.metadata.parse_quality_score,
-                        "nusf_format": schedule_obj.metadata.source_system,
-                        "nusf_warnings": len(warnings),
-                    },
-                }
-
-            _schedule_cleanup(_v2_predictive_progress, analysis_id, 300)
-            logger.info(f"[v2/predictive] Complete ({elapsed:.1f}s) analysis_id={analysis_id}")
-
-        except Exception as e:
-            logger.error(f"[v2/predictive] Unexpected error: {e}", exc_info=True)
-            with _progress_lock:
-                _v2_predictive_progress[analysis_id].update(
-                    stage="error", step=-1, message=str(e),
-                    error=str(e), timestamp=time.time(),
-                )
-            _schedule_cleanup(_v2_predictive_progress, analysis_id, 120)
-
-    asyncio.create_task(_background())
-
-    return {
-        "analysis_id": analysis_id,
-        "status": "processing",
-        "pipeline": "NUSF",
-        "message": f"Analysis started. Poll GET /v2/predictive/progress/{analysis_id} for progress.",
-    }
-
-
-@router.get("/predictive/progress/{analysis_id}")
-async def v2_get_predictive_progress(analysis_id: str):
-    with _progress_lock:
-        progress = _v2_predictive_progress.get(analysis_id)
-    if not progress:
-        raise HTTPException(
-            status_code=404,
-            detail="No analysis found with this ID. It may have completed or expired.",
-        )
     return progress
 
 

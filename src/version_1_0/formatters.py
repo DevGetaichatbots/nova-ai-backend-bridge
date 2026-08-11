@@ -66,16 +66,18 @@ CSS = """
 .ni-header-meta strong{font-weight:900}
 .ni-status{margin-left:auto;align-self:flex-start;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase}
 .ni-status.stable{background:#e6f7ef;color:#047857}.ni-status.at_risk,.ni-status.at-risk{background:#fff3d6;color:#b45309}.ni-status.critical{background:#ffe4e6;color:#be123c}
-.ni-kpis{display:grid;grid-template-columns:repeat(6,minmax(118px,1fr));gap:10px;padding:14px 18px;background:linear-gradient(180deg,#e9f7f8,#f5fafb);border-bottom:1px solid #cfe4e7}
-.ni-kpi{background:#fff;border:1px solid #dcebed;border-top:3px solid #00a7a7;border-radius:8px;padding:10px 12px;min-height:86px;box-shadow:0 8px 22px rgba(15,82,92,.06)}
-.ni-kpi-icon{width:24px;height:24px;border-radius:7px;margin-bottom:6px;display:flex;align-items:center;justify-content:center}
-.ni-kpi-value{font-size:28px;font-weight:900;line-height:1}
-.ni-kpi-label{margin-top:4px;font-size:10px;font-weight:800;color:#4c5f6b;text-transform:uppercase;letter-spacing:.25px}
-.ni-neutral .ni-kpi-icon{background:#e7f2f4;color:#0f4f5a}.ni-neutral .ni-kpi-value{color:#14212b}
-.ni-blue{border-top-color:#0284c7}.ni-blue .ni-kpi-icon{background:#dcf7ff;color:#0284c7}.ni-blue .ni-kpi-value{color:#0284c7}
-.ni-red{border-top-color:#dc2626}.ni-red .ni-kpi-icon{background:#ffe4e6;color:#dc2626}.ni-red .ni-kpi-value{color:#dc2626}
-.ni-green{border-top-color:#059669}.ni-green .ni-kpi-icon{background:#dcfce7;color:#059669}.ni-green .ni-kpi-value{color:#059669}
-.ni-amber{border-top-color:#d97706}.ni-amber .ni-kpi-icon{background:#fef3c7;color:#d97706}.ni-amber .ni-kpi-value{color:#d97706}
+.ni-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;padding:18px 22px;background:#f8fbfc;border-bottom:1px solid #e2eaee}
+.ni-kpi{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px 20px;min-height:88px;display:flex;align-items:center;gap:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:box-shadow .15s}
+.ni-kpi:hover{box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.ni-kpi-icon{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ni-kpi-text{display:flex;flex-direction:column;min-width:0;line-height:1.15}
+.ni-kpi-label{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.ni-kpi-value{font-size:28px;font-weight:800;line-height:1}
+.ni-neutral .ni-kpi-icon{background:#0f4f5a}.ni-neutral .ni-kpi-value{color:#0f4f5a}
+.ni-blue .ni-kpi-icon{background:#1E88E5}.ni-blue .ni-kpi-value{color:#1E88E5}
+.ni-red .ni-kpi-icon{background:#E53935}.ni-red .ni-kpi-value{color:#E53935}
+.ni-green .ni-kpi-icon{background:#43A047}.ni-green .ni-kpi-value{color:#43A047}
+.ni-amber .ni-kpi-icon{background:#d97706}.ni-amber .ni-kpi-value{color:#d97706}
 .ni-body{display:flex;align-items:flex-start;min-height:700px}
 .ni-sidebar{width:224px;min-width:224px;position:sticky;top:0;background:#fbfefe;border-right:1px solid #cfe4e7;padding:14px 12px;align-self:flex-start}
 .ni-filter-title{font-size:10px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#71828f;margin:0 0 10px}
@@ -113,6 +115,86 @@ CSS = """
 .ni-summary-dark{background:linear-gradient(135deg,#06343b 0%,#0a4650 58%,#08313b 100%);border:1px solid #0e6770;border-radius:8px;padding:14px;color:#eefefe;box-shadow:0 8px 22px rgba(4,47,54,.20);margin-bottom:14px}.ni-summary-dark .ni-section-title,.ni-summary-dark .ni-summary-value{color:#eefefe}.ni-summary-dark .ni-summary-label{color:#9ed8dc}.ni-summary-dark .ni-summary-item{background:rgba(4,38,45,.45);border:1px solid rgba(151,221,226,.28)}.ni-summary-dark .ni-summary-note{background:rgba(4,38,45,.45);border:1px solid rgba(151,221,226,.28);color:#d7eeee}
 .ni-table-wrap{max-height:360px;overflow:auto;border:1px solid #dcebed;border-radius:7px}.ni-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}.ni-table th{position:sticky;top:0;background:#eaf8fa;color:#0f5f68;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border-bottom:1px solid #bfe5e9;white-space:nowrap;cursor:pointer}.ni-table td{padding:7px 8px;border-bottom:1px solid #eef6f7;color:#263845;vertical-align:top}.ni-table tr:nth-child(even) td{background:#fbfefe}.ni-table tr:last-child td{border-bottom:0}.ni-task{font-weight:800;color:#14212b;min-width:180px}.ni-chip{display:inline-flex;padding:2px 6px;border-radius:4px;background:#e7f7f8;color:#0f5f68;font-size:10px;font-weight:800;margin:1px 2px 1px 0}.ni-neg{color:#dc2626;font-weight:900}.ni-pos{color:#059669;font-weight:900}
 .ni-section-red .ni-table th{background:#fff1f2;color:#be123c;border-bottom-color:#fecdd3}.ni-section-green .ni-table th{background:#ecfdf5;color:#047857;border-bottom-color:#bbf7d0}.ni-section-amber .ni-table th{background:#fffbeb;color:#b45309;border-bottom-color:#fde68a}.ni-section-blue .ni-table th{background:#eff8ff;color:#0369a1;border-bottom-color:#bae6fd}
+.ni-kpi.ni-kemp-hidden,.ni-section.ni-kemp-hidden,tr.ni-kemp-hidden{display:none!important}
+.ni-kemp-toggle{width:100%;display:flex;align-items:center;gap:7px;border:1px dashed #cfe4e7;background:#f4fafa;color:#0f5f68;border-radius:6px;padding:7px 8px;font-size:11px;font-weight:800;text-align:left;cursor:pointer;margin-bottom:4px}
+.ni-kemp-toggle:hover{background:#e6f5f6}
+.ni-kemp-toggle.active{background:#e0f7f8;border-color:#7ddfe5;border-style:solid;color:#006b73}
+.ni-kemp-toggle .ni-kemp-dot{width:8px;height:8px;border-radius:50%;background:#cbd5dc;flex-shrink:0}
+.ni-kemp-toggle.active .ni-kemp-dot{background:#dc2626}
+@media(max-width:1050px){.ni-kpis{grid-template-columns:repeat(3,1fr)}.ni-actions{grid-template-columns:1fr}.ni-body{flex-direction:column}.ni-sidebar{position:relative;width:100%;min-width:0;border-right:0;border-bottom:1px solid #dfe7ea}.ni-filter-group{display:inline-block;vertical-align:top;min-width:180px;margin-right:12px}.ni-main{padding:12px}.ni-graph-card{padding:16px}.ni-graph-head{flex-direction:column}.ni-progress-list{grid-template-columns:120px 1fr 48px}}
+@media(max-width:640px){.ni-kpis{grid-template-columns:repeat(2,1fr);padding:10px}.ni-kpi{min-height:78px}.ni-kpi-value{font-size:24px}.ni-title{font-size:15px}.ni-graph-svg{height:220px}.ni-table{font-size:10px}}
+"""
+
+
+CSS_KEMP = """
+*{box-sizing:border-box}
+.ni-v1{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f2f7f5;color:#14212b;line-height:1.35;-webkit-font-smoothing:antialiased}
+.ni-header{min-height:62px;background:linear-gradient(90deg,#ffffff 0%,#f2fbf7 100%);border-bottom:1px solid #cfe7df;display:flex;align-items:flex-start;padding:12px 22px 14px;gap:12px}
+.ni-logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#00b870,#02c79b);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;box-shadow:0 8px 18px rgba(0, 184, 112,.18)}
+.ni-brand{font-size:9px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:#008c55;margin:0}
+.ni-title{font-size:18px;font-weight:900;margin:0;color:#14212b;letter-spacing:0}
+.ni-sub{font-size:11px;color:#71828f;margin:0}
+.ni-header-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.ni-header-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.ni-header-meta span{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;background:#eafaf5;border:1px solid #cfe7df;font-size:10px;font-weight:800;color:#0f684a}
+.ni-header-meta strong{font-weight:900}
+.ni-status{margin-left:auto;align-self:flex-start;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase}
+.ni-status.stable{background:#e6f7ef;color:#047857}.ni-status.at_risk,.ni-status.at-risk{background:#fff3d6;color:#b45309}.ni-status.critical{background:#ffe4e6;color:#be123c}
+.ni-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;padding:18px 22px;background:#f5fbf9;border-bottom:1px solid #dceee5}
+.ni-kpi{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px 20px;min-height:88px;display:flex;align-items:center;gap:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:box-shadow .15s}
+.ni-kpi:hover{box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.ni-kpi-icon{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ni-kpi-text{display:flex;flex-direction:column;min-width:0;line-height:1.15}
+.ni-kpi-label{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.ni-kpi-value{font-size:28px;font-weight:800;line-height:1}
+.ni-neutral .ni-kpi-icon{background:#0f5a42}.ni-neutral .ni-kpi-value{color:#0f5a42}
+.ni-blue .ni-kpi-icon{background:#02c79b}.ni-blue .ni-kpi-value{color:#02c79b}
+.ni-red .ni-kpi-icon{background:#E53935}.ni-red .ni-kpi-value{color:#E53935}
+.ni-green .ni-kpi-icon{background:#43A047}.ni-green .ni-kpi-value{color:#43A047}
+.ni-amber .ni-kpi-icon{background:#d97706}.ni-amber .ni-kpi-value{color:#d97706}
+.ni-body{display:flex;align-items:flex-start;min-height:700px}
+.ni-sidebar{width:224px;min-width:224px;position:sticky;top:0;background:#fbfefd;border-right:1px solid #cfe7df;padding:14px 12px;align-self:flex-start}
+.ni-filter-title{font-size:10px;font-weight:900;letter-spacing:1.2px;text-transform:uppercase;color:#71828f;margin:0 0 10px}
+.ni-filter-group{margin:0 0 16px}
+.ni-filter-label{font-size:9px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#7d8d97;margin:0 0 6px}
+.ni-filter-opt{width:100%;display:flex;align-items:center;gap:7px;border:1px solid transparent;background:transparent;color:#263845;border-radius:6px;padding:6px 8px;font-size:11px;font-weight:650;text-align:left;cursor:pointer}
+.ni-filter-opt:hover{background:#eefaf5}.ni-filter-opt.active{background:#e0f8ef;border-color:#7de5bf;color:#00734a}
+.ni-filter-dot{width:8px;height:8px;border-radius:50%;background:#cbd5dc}.ni-filter-opt.active .ni-filter-dot{background:#00a766}
+.ni-main{flex:1;min-width:0;padding:16px;display:flex;flex-direction:column;gap:14px}
+.ni-warnings{background:#fff7ed;border:1px solid #fed7aa;border-left:4px solid #f97316;border-radius:7px;padding:10px 12px;color:#9a3412;font-size:12px;font-weight:700}
+.ni-graph-card{background:linear-gradient(135deg,#063b2a 0%,#0a503a 58%,#083b2c 100%);border:1px solid #0e704e;border-radius:8px;padding:22px 24px 18px;color:#d7eee5;min-height:380px;box-shadow:0 18px 42px rgba(4, 54, 38,.20)}
+.ni-graph-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}
+.ni-graph-title{font-size:18px;font-weight:850;letter-spacing:1.4px;text-transform:uppercase;margin:0;color:#eefef8}
+.ni-graph-sub{font-size:12px;color:#9edcc6;margin:4px 0 0}
+.ni-graph-stats{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:10px;margin:0 0 10px}.ni-graph-stat{border:1px solid rgba(151, 226, 199,.28);background:rgba(4, 45, 32,.45);border-radius:7px;padding:8px 10px}.ni-graph-stat span{display:block;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.55px;color:#9edcc6}.ni-graph-stat strong{display:block;margin-top:2px;font-size:18px;line-height:1;color:#eefef8}.ni-graph-stat.delay strong{color:#fbbf24}
+.ni-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;font-weight:800;color:#d5f5e9}
+.ni-key{display:inline-flex;align-items:center;gap:6px}.ni-key span{width:12px;height:12px;display:inline-block;border-radius:2px}
+.ni-key-actual{background:#00d682}.ni-key-planned{background:#b7cbd0}.ni-key-forecast{background:#38f8ca}.ni-key-delay{border:1px solid #f59e0b;background:repeating-linear-gradient(135deg,transparent 0,transparent 3px,rgba(245, 158, 11,.8) 3px,rgba(245, 158, 11,.8) 5px)}
+.ni-graph-svg{width:100%;height:270px;display:block}.ni-grid{stroke:rgba(207, 231, 223,.18);stroke-width:1}.ni-axis{fill:#a8e0cc;font-size:11px;font-weight:750}
+.ni-planned{fill:none;stroke:#b7cbd0;stroke-width:3;stroke-linecap:round}.ni-actual{fill:none;stroke:#00d682;stroke-width:4;stroke-linecap:round;filter:drop-shadow(0 5px 10px rgba(0, 214, 130,.22))}.ni-forecast{fill:none;stroke:#38f8ca;stroke-width:3;stroke-linecap:round}
+.ni-fill-actual{fill:url(#niActualFill);opacity:.85}.ni-fill-forecast{fill:url(#niForecastFill);opacity:.8}
+.ni-gap-area{fill:url(#niGapFill);opacity:.9}
+.ni-gap-line{stroke:#f59e0b;stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 3px 8px rgba(245, 158, 11,.35))}.ni-point-actual{fill:#00d682;stroke:#05432f;stroke-width:3}.ni-point-planned{fill:#b7cbd0;stroke:#05432f;stroke-width:3}.ni-point-label{fill:#eafff7;font-size:12px;font-weight:900}.ni-point-label.planned{fill:#d8eee7}.ni-today{stroke:#e2fff4;stroke-width:2;stroke-dasharray:3 5}.ni-callout{fill:#073a2a;stroke:#4dc299;stroke-width:1}.ni-callout-text{fill:#eefef8;font-size:13px;font-weight:800}
+.ni-empty-graph{height:250px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(168, 224, 204,.35);color:#c8eedf;font-weight:800}
+.ni-section{background:#fff;border:1px solid #dcede7;border-left:4px solid #00a766;border-radius:8px;padding:14px;box-shadow:0 8px 22px rgba(15, 92, 67,.05)}
+.ni-section-red{border-left-color:#dc2626}.ni-section-green{border-left-color:#059669}.ni-section-amber{border-left-color:#d97706}.ni-section-blue{border-left-color:#02c79b}.ni-section-teal{border-left-color:#00a766}
+.ni-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.ni-title-wrap{display:flex;align-items:center;gap:8px}.ni-section-icon{width:26px;height:26px;border-radius:7px;background:#e0f8ef;color:#008c55;display:flex;align-items:center;justify-content:center;flex-shrink:0}.ni-section-icon.red{background:#ffe4e6;color:#dc2626}.ni-section-icon.green{background:#dcfce7;color:#059669}.ni-section-icon.amber{background:#fef3c7;color:#d97706}.ni-section-icon.blue{background:#dcfff5;color:#02c79b}
+.ni-section-title{font-size:13px;font-weight:900;margin:0;color:#14212b;text-transform:uppercase;letter-spacing:.8px}
+.ni-section-sub{font-size:11px;color:#71828f;margin:2px 0 0}
+.ni-progress-list{display:grid;grid-template-columns:minmax(170px,240px) 1fr 64px;gap:10px;align-items:center}
+.ni-progress-row{display:contents}.ni-progress-label{font-size:12px;font-weight:850;color:#263845;padding:7px 0}.ni-progress-track{height:14px;background:#e3f0ec;overflow:hidden;border-radius:3px}.ni-progress-bar{height:100%;background:linear-gradient(90deg,#008c55,#00c276);border-radius:3px}.ni-progress-value{font-size:12px;font-weight:900;text-align:right}
+.ni-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.ni-action{border:1px solid #cfe7df;border-left:3px solid #00a766;border-radius:7px;padding:10px;background:#f8fefc}.ni-action-rank{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#00a766,#02c79b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;margin-bottom:8px}.ni-action-text{font-size:12px;font-weight:800;color:#14212b}.ni-action-meta{font-size:11px;color:#63737c;margin-top:6px}
+.ni-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px}.ni-summary-item{border:1px solid #dcede7;border-left:3px solid #00a766;border-radius:7px;background:#f8fefc;padding:9px 10px}.ni-summary-label{font-size:9px;text-transform:uppercase;letter-spacing:.35px;font-weight:900;color:#71828f}.ni-summary-value{margin-top:3px;font-size:15px;font-weight:900;color:#14212b}.ni-summary-note{grid-column:1/-1;font-size:12px;color:#4c5f6b;background:#fbfefd;border:1px solid #e4f1ed;border-radius:7px;padding:10px}
+.ni-summary-dark{background:linear-gradient(135deg,#063b2a 0%,#0a503a 58%,#083b2c 100%);border:1px solid #0e704e;border-radius:8px;padding:14px;color:#eefef8;box-shadow:0 8px 22px rgba(4, 54, 38,.20);margin-bottom:14px}.ni-summary-dark .ni-section-title,.ni-summary-dark .ni-summary-value{color:#eefef8}.ni-summary-dark .ni-summary-label{color:#9edcc6}.ni-summary-dark .ni-summary-item{background:rgba(4, 45, 32,.45);border:1px solid rgba(151, 226, 199,.28)}.ni-summary-dark .ni-summary-note{background:rgba(4, 45, 32,.45);border:1px solid rgba(151, 226, 199,.28);color:#d7eee5}
+.ni-table-wrap{max-height:360px;overflow:auto;border:1px solid #dcede7;border-radius:7px}.ni-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}.ni-table th{position:sticky;top:0;background:#eafaf5;color:#0f684a;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border-bottom:1px solid #bfe9db;white-space:nowrap;cursor:pointer}.ni-table td{padding:7px 8px;border-bottom:1px solid #eef7f4;color:#263845;vertical-align:top}.ni-table tr:nth-child(even) td{background:#fbfefd}.ni-table tr:last-child td{border-bottom:0}.ni-task{font-weight:800;color:#14212b;min-width:180px}.ni-chip{display:inline-flex;padding:2px 6px;border-radius:4px;background:#e7f8f2;color:#0f684a;font-size:10px;font-weight:800;margin:1px 2px 1px 0}.ni-neg{color:#dc2626;font-weight:900}.ni-pos{color:#059669;font-weight:900}
+.ni-section-red .ni-table th{background:#fff1f2;color:#be123c;border-bottom-color:#fecdd3}.ni-section-green .ni-table th{background:#ecfdf5;color:#047857;border-bottom-color:#bbf7d0}.ni-section-amber .ni-table th{background:#fffbeb;color:#b45309;border-bottom-color:#fde68a}.ni-section-blue .ni-table th{background:#effffc;color:#03a17f;border-bottom-color:#bafdee}
+.ni-kpi.ni-kemp-hidden,.ni-section.ni-kemp-hidden,tr.ni-kemp-hidden{display:none!important}
+.ni-kemp-toggle{width:100%;display:flex;align-items:center;gap:7px;border:1px dashed #cfe7df;background:#f4faf8;color:#0f684a;border-radius:6px;padding:7px 8px;font-size:11px;font-weight:800;text-align:left;cursor:pointer;margin-bottom:4px}
+.ni-kemp-toggle:hover{background:#e6f6f0}
+.ni-kemp-toggle.active{background:#e0f8ef;border-color:#7de5bf;border-style:solid;color:#00734a}
+.ni-kemp-toggle .ni-kemp-dot{width:8px;height:8px;border-radius:50%;background:#cbd5dc;flex-shrink:0}
+.ni-kemp-toggle.active .ni-kemp-dot{background:#dc2626}
 @media(max-width:1050px){.ni-kpis{grid-template-columns:repeat(3,1fr)}.ni-actions{grid-template-columns:1fr}.ni-body{flex-direction:column}.ni-sidebar{position:relative;width:100%;min-width:0;border-right:0;border-bottom:1px solid #dfe7ea}.ni-filter-group{display:inline-block;vertical-align:top;min-width:180px;margin-right:12px}.ni-main{padding:12px}.ni-graph-card{padding:16px}.ni-graph-head{flex-direction:column}.ni-progress-list{grid-template-columns:120px 1fr 48px}}
 @media(max-width:640px){.ni-kpis{grid-template-columns:repeat(2,1fr);padding:10px}.ni-kpi{min-height:78px}.ni-kpi-value{font-size:24px}.ni-title{font-size:15px}.ni-graph-svg{height:220px}.ni-table{font-size:10px}}
 """
@@ -198,6 +280,10 @@ JS = """
       return dir==='asc'?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av));
     });
     rows.forEach(function(r){tbody.appendChild(r);});
+  };
+  window.niV1KempToggle=function(btn){
+    var show=btn.classList.toggle('active');
+    qsa('.ni-kemp-optional').forEach(function(el){el.classList.toggle('ni-kemp-hidden', !show);});
   };
   document.addEventListener('DOMContentLoaded', applyFilters);
   if(document.readyState!=='loading') applyFilters();
@@ -299,6 +385,74 @@ def _svg_icon() -> str:
     return '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/></svg>'
 
 
+_KPI_ICON_PATHS = {
+    "activities_analyzed": (
+        '<rect x="6" y="4" width="12" height="16" rx="2"/>'
+        '<path d="M9 4V2h6v2"/>'
+        '<line x1="8" y1="10" x2="16" y2="10"/>'
+        '<line x1="8" y1="13" x2="16" y2="13"/>'
+        '<line x1="8" y1="16" x2="13" y2="16"/>'
+    ),
+    "changed_table": (
+        '<polyline points="17 1 21 5 17 9"/>'
+        '<path d="M3 11V9a4 4 0 0 1 4-4h14"/>'
+        '<polyline points="7 23 3 19 7 15"/>'
+        '<path d="M21 13v2a4 4 0 0 1-4 4H3"/>'
+    ),
+    "critical_path_table": (
+        '<circle cx="5" cy="6" r="2"/>'
+        '<circle cx="19" cy="18" r="2"/>'
+        '<path d="M7 6c4 0 6 4 6 8s2 4 4 4"/>'
+    ),
+    "behind_table": (
+        '<circle cx="12" cy="12" r="9"/>'
+        '<polyline points="12 7 12 12 16 14"/>'
+    ),
+    "ahead_table": (
+        '<circle cx="12" cy="12" r="9"/>'
+        '<polyline points="8 12 11 15 16 9"/>'
+    ),
+    "point_no_return": (
+        '<path d="M12 2L1 21h22L12 2z"/>'
+        '<line x1="12" y1="9" x2="12" y2="14"/>'
+        '<circle cx="12" cy="17.5" r="0.6" fill="currentColor"/>'
+    ),
+    "delayed_activities": (
+        '<circle cx="12" cy="12" r="9"/>'
+        '<polyline points="12 7 12 12 16 14"/>'
+    ),
+    "critical_activities": (
+        '<path d="M12 2L1 21h22L12 2z"/>'
+        '<line x1="12" y1="9" x2="12" y2="14"/>'
+        '<circle cx="12" cy="17.5" r="0.6" fill="currentColor"/>'
+    ),
+    "important_next": (
+        '<path d="M5 3v18"/>'
+        '<path d="M5 4l13 4-13 4"/>'
+    ),
+    "monitor": (
+        '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/>'
+        '<circle cx="12" cy="12" r="3"/>'
+    ),
+    "highest_risk": (
+        '<circle cx="12" cy="12" r="9"/>'
+        '<line x1="12" y1="8" x2="12" y2="13"/>'
+        '<circle cx="12" cy="16.5" r="0.6" fill="currentColor"/>'
+    ),
+}
+
+
+def _kpi_icon(key: str) -> str:
+    inner = _KPI_ICON_PATHS.get(key)
+    if not inner:
+        return _svg_icon()
+    return (
+        '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" '
+        'stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        f'{inner}</svg>'
+    )
+
+
 def _section_icon(title_key: str) -> tuple[str, str]:
     cfg = {
         "behind_table": ("red", '<path d="M3 3v18h18"/><path d="M7 8v8"/><path d="M12 5v11"/><path d="M17 12v4"/>'),
@@ -331,14 +485,19 @@ def _section_heading(language: str, title_key: str, count: int | None = None, su
 
 def _render_kpis(payload: dict, language: str) -> str:
     parts = ['<div class="ni-kpis">']
+    optional_keys = set(payload.get("_kemp_optional_kpi_keys") or [])
     for item in payload.get("kpis", []):
         tone = _tone_class(item.get("tone", "neutral"))
         suffix = _e(item.get("suffix", ""))
+        is_optional = item.get("key") in optional_keys
+        optional_cls = " ni-kemp-optional ni-kemp-hidden" if is_optional else ""
         parts.append(
-            f'<div class="ni-kpi {tone}">'
-            f'<div class="ni-kpi-icon">{_svg_icon()}</div>'
-            f'<div class="ni-kpi-value">{_e(item.get("value", 0))}{suffix}</div>'
+            f'<div class="ni-kpi {tone}{optional_cls}">'
+            f'<div class="ni-kpi-icon">{_kpi_icon(item.get("key", ""))}</div>'
+            f'<div class="ni-kpi-text">'
             f'<div class="ni-kpi-label">{_e(t(language, item.get("key", "")))}</div>'
+            f'<div class="ni-kpi-value">{_e(item.get("value", 0))}{suffix}</div>'
+            f'</div>'
             f'</div>'
         )
     parts.append("</div>")
@@ -364,9 +523,31 @@ def _filter_buttons(language: str, dim: str, values: list[str], label_key: str) 
 
 def _render_sidebar(payload: dict, language: str) -> str:
     filters = payload.get("filters", {})
+    kemp_toggle = ""
+    overview_toggle = ""
+    if payload.get("_kemp_variant"):
+        kemp_toggle = (
+            '<div class="ni-filter-group">'
+            f'<p class="ni-filter-label">{_e(t(language, "kemp_details"))}</p>'
+            '<button type="button" class="ni-kemp-toggle" onclick="niV1KempToggle(this)">'
+            '<span class="ni-kemp-dot"></span>'
+            f'{_e(t(language, "kemp_toggle_label"))}</button>'
+            '</div>'
+        )
+    if payload.get("mode") == "health" and not payload.get("_kemp_variant"):
+        overview_toggle = (
+            '<div class="ni-filter-group">'
+            f'<p class="ni-filter-label">{_e(t(language, "overview_label"))}</p>'
+            '<button type="button" class="ni-kemp-toggle" onclick="niV1KempToggle(this)">'
+            '<span class="ni-kemp-dot"></span>'
+            f'{_e(t(language, "overview_toggle_label"))}</button>'
+            '</div>'
+        )
     return (
         '<aside class="ni-sidebar">'
         f'<p class="ni-filter-title">{_e(t(language, "filters"))}</p>'
+        + overview_toggle
+        + kemp_toggle
         + _filter_buttons(language, "area", filters.get("areas", []), "building")
         + _filter_buttons(language, "phase", filters.get("phases", []), "phase")
         + _filter_buttons(language, "floor", filters.get("floors", []), "floor")
@@ -638,8 +819,9 @@ def _table_row(row: dict, language: str, variant: str) -> str:
     resource = row.get("resource") or row.get("trade")
     dev = float(row.get("deviation") or 0)
     dev_cls = "ni-neg" if dev < 0 else "ni-pos" if dev > 0 else ""
+    optional_cls = ' ni-kemp-optional ni-kemp-hidden' if row.get("_kemp_optional") else ''
     base = (
-        f'<tr {_filter_attrs(row)} {_sort_attrs(row)}>'
+        f'<tr{optional_cls} {_filter_attrs(row)} {_sort_attrs(row)}>'
         f'<td>{_e(row.get("id"))}</td>'
         f'<td class="ni-task">{_e(row.get("task_name"))}</td>'
         f'<td>{_e(row.get("phase"))}</td>'
@@ -678,11 +860,13 @@ def _table_row(row: dict, language: str, variant: str) -> str:
     )
 
 
-def _render_table(language: str, title_key: str, rows: list[dict], variant: str = "progress", count: int | None = None) -> str:
+def _render_table(language: str, title_key: str, rows: list[dict], variant: str = "progress", count: int | None = None, payload: dict | None = None) -> str:
     logger.info(
         f"[version_1_0.formatters][_render_table] title_key={title_key!r} variant={variant!r} "
         f"row_count={len(rows)} sample_ids={[r.get('id') for r in rows[:5]]!r}"
     )
+    optional_sections = set((payload or {}).get("_kemp_optional_section_titles") or [])
+    section_is_optional = title_key in optional_sections
     if variant == "changed":
         headers = [
             _th(language, "id", "id"), _th(language, "task_name", "task"),
@@ -721,7 +905,8 @@ def _render_table(language: str, title_key: str, rows: list[dict], variant: str 
     if not body:
         body = f'<tr><td colspan="{len(headers)}" style="text-align:center;color:#71828f;padding:18px">{_e(t(language, "none"))}</td></tr>'
     tone, _icon = _section_icon(title_key)
-    section_cls = f"ni-section ni-table-section ni-section-{tone or 'teal'}"
+    optional_section_attr = ' ni-kemp-optional ni-kemp-hidden' if section_is_optional else ''
+    section_cls = f"ni-section ni-table-section ni-section-{tone or 'teal'}{optional_section_attr}"
     return f"""
 <section class="{section_cls}">
   {_section_heading(language, title_key, len(rows) if count is None else count)}
@@ -790,8 +975,34 @@ def _render_summary(payload: dict, language: str) -> str:
     return "\n".join(parts)
 
 
-def _render_payload(payload: dict, language: str) -> str:
+def _mark_optional_health_items(payload: dict, tables: dict) -> None:
+    """Mark the point-of-no-return-related items as toggleable.
+
+    Both the Kemp variant and the non-Kemp health variant share the same
+    optional mechanism: 3 KPI pills (activities_analyzed, critical_path_table,
+    point_of_no_return), the critical_path_table section, and any rows in the
+    behind/ahead/changed/stage tables whose task_name appears in the critical
+    path set. The sidebar toggle reveals/hides them on demand.
+    """
+    payload["_kemp_optional_kpi_keys"] = [
+        "activities_analyzed", "critical_path_table", "point_no_return",
+    ]
+    ponr_names = {
+        row.get("task_name")
+        for row in tables.get("critical_path", [])
+        if row.get("task_name")
+    }
+    if ponr_names:
+        for key in ("behind", "ahead", "changed", "stage"):
+            for row in tables.get(key, []):
+                if row.get("task_name") in ponr_names:
+                    row["_kemp_optional"] = True
+    payload["_kemp_optional_section_titles"] = ["critical_path_table"]
+
+
+def _render_payload(payload: dict, language: str, variant: str = "default") -> str:
     language = lang_code(language)
+    active_css = CSS_KEMP if variant in ("kemp", "kemp-predictive") else CSS
     status = str(payload.get("status", "at-risk")).replace("_", "-")
     warnings = "".join(
         f'<div class="ni-warnings"><strong>{_e(t(language, "data_quality"))}:</strong> {_e(_warning_text(w, language))}</div>'
@@ -800,19 +1011,35 @@ def _render_payload(payload: dict, language: str) -> str:
     )
     tables = payload.get("tables", {})
     table_counts = payload.get("table_counts", {})
+
+    if variant == "kemp":
+        # Kemp variant: render every section, but mark the point-of-no-return
+        # related items as "optional". The sidebar toggle in the Kemp dashboard
+        # shows/hides them on demand (default hidden, matching the previous
+        # stripped behaviour). Nothing is removed at the formatter stage.
+        _mark_optional_health_items(payload, tables)
+        payload["_kemp_variant"] = True
+    elif payload.get("mode") == "health":
+        # Non-Kemp health variant: same optional behaviour as Kemp — the
+        # "Show Overview" sidebar button reveals the same set of items
+        # (3 KPI pills + the critical_path_table + its rows in other tables).
+        _mark_optional_health_items(payload, tables)
+        payload["_overview_variant"] = True
+
     table_html = []
     summary_html = ""
     if payload.get("mode") == "health":
         summary_html = _render_summary(payload, language)
         # Health section order: current extract (area_progress, rendered above)
         # → critical activities → changed → behind → ahead → current stage analysis (bottom).
+        # Kemp variant renders the same sections (toggle controls visibility).
         table_html.extend(
             [
-                _render_table(language, "critical_path_table", tables.get("critical_path", []), "critical_path"),
-                _render_table(language, "changed_table", tables.get("changed", []), "changed", table_counts.get("changed_table")),
-                _render_table(language, "behind_table", tables.get("behind", [])),
-                _render_table(language, "ahead_table", tables.get("ahead", [])),
-                _render_table(language, "stage_table", tables.get("stage", [])),
+                _render_table(language, "critical_path_table", tables.get("critical_path", []), "critical_path", payload=payload),
+                _render_table(language, "changed_table", tables.get("changed", []), "changed", table_counts.get("changed_table"), payload=payload),
+                _render_table(language, "behind_table", tables.get("behind", []), payload=payload),
+                _render_table(language, "ahead_table", tables.get("ahead", []), payload=payload),
+                _render_table(language, "stage_table", tables.get("stage", []), payload=payload),
             ]
         )
     else:
@@ -826,7 +1053,7 @@ def _render_payload(payload: dict, language: str) -> str:
             ]
         )
     return f"""
-<style>{CSS}</style>
+<style>{active_css}</style>
 <script>{JS}</script>
 <script>window.__novaV1Data={_script_json(payload)};</script>
 <div class="ni-v1">
@@ -862,8 +1089,30 @@ def format_health_v1_as_html(data: dict, language: str = "en") -> str:
     return _render_payload(adapt_health_dashboard(data, language), language)
 
 
+def format_kemp_v1_as_html(data: dict, language: str = "en") -> str:
+    """Version 1.0 health variant for the Kemp endpoint.
+
+    Receives the same payload as ``format_health_v1_as_html`` but the rendered
+    HTML omits the activities-analyzed / critical-activities / point-of-no-return
+    KPI pills, the critical-path (point-of-no-return) table, and any rows in
+    the behind/ahead/changed/stage tables that also appear in the critical-path
+    set. No upstream agent or adapter changes are required.
+    """
+    return _render_payload(adapt_health_dashboard(data, language), language, variant="kemp")
+
+
 def format_predictive_v1_as_html(data: dict, language: str = "en") -> str:
     return _render_payload(adapt_predictive_dashboard(data, language), language)
+
+
+def format_kemp_predictive_v1_as_html(data: dict, language: str = "en") -> str:
+    """Version 1.0 predictive dashboard — Kemp (green) variant.
+
+    Same payload/layout as ``format_predictive_v1_as_html``; only the color
+    palette differs (K&L green instead of Nova blue/teal). No adapter or
+    data-shape changes.
+    """
+    return _render_payload(adapt_predictive_dashboard(data, language), language, variant="kemp-predictive")
 
 
 def localize_v1_html(html: str, language: str = "da") -> str:
