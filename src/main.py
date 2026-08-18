@@ -1382,7 +1382,7 @@ async def version_1_kemp_health_dashboard(
     new_session_id: str = Form(...),
     scope_filter: str = Form(None),
     reference_date: str = Form(None),
-    language: str = Form("en"),
+    language: str = Form("da"),
     format: str = Form("html"),
     analysis_id: str = Form(None),
     data_format: str = Form(None),
@@ -1644,7 +1644,7 @@ async def version_1_predictive_dashboard(
 @app.post("/version-1.0/kemp/predictive")
 async def version_1_kemp_predictive_dashboard(
     schedule: UploadFile = File(...),
-    language: str = Form("en"),
+    language: str = Form("da"),
     format: str = Form("html"),
     analysis_id: str = Form(None),
     data_format: str = Form("raw"),

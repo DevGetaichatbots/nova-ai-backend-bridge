@@ -123,6 +123,51 @@ CSS = """
 .ni-kemp-toggle.active .ni-kemp-dot{background:#dc2626}
 @media(max-width:1050px){.ni-kpis{grid-template-columns:repeat(3,1fr)}.ni-actions{grid-template-columns:1fr}.ni-body{flex-direction:column}.ni-sidebar{position:relative;width:100%;min-width:0;border-right:0;border-bottom:1px solid #dfe7ea}.ni-filter-group{display:inline-block;vertical-align:top;min-width:180px;margin-right:12px}.ni-main{padding:12px}.ni-graph-card{padding:16px}.ni-graph-head{flex-direction:column}.ni-progress-list{grid-template-columns:120px 1fr 48px}}
 @media(max-width:640px){.ni-kpis{grid-template-columns:repeat(2,1fr);padding:10px}.ni-kpi{min-height:78px}.ni-kpi-value{font-size:24px}.ni-title{font-size:15px}.ni-graph-svg{height:220px}.ni-table{font-size:10px}}
+.ni-expand-col{width:24px;padding:7px 2px 7px 8px!important}
+.ni-expand-cell{padding:7px 2px 7px 8px!important;vertical-align:middle}
+.ni-expand-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:0;border-radius:4px;background:transparent;color:#7d8d97;cursor:pointer;padding:0;transition:background .12s,color .12s}
+.ni-expand-btn:hover{background:#e0f7f8;color:#006b73}
+.ni-expand-btn:focus-visible{outline:2px solid #00a7a7;outline-offset:1px}
+.ni-expand-btn svg{transition:transform .15s}
+.ni-change-row.ni-change-open .ni-expand-btn svg{transform:rotate(90deg)}
+.ni-change-cell{min-width:180px}
+.ni-change-chips{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.ni-change-chip{--ni-ch-tone:#6b7280;--ni-ch-bg:#f3f4f6;--ni-ch-border:#e5e7eb;display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:999px;background:var(--ni-ch-bg);border:1px solid var(--ni-ch-border);border-left:3px solid var(--ni-ch-tone);color:var(--ni-ch-tone);font-size:10px;font-weight:800;white-space:nowrap;line-height:1.5}
+.ni-change-chip--delay{--ni-ch-tone:#dc2626;--ni-ch-bg:#ffe4e6;--ni-ch-border:#fecdd3}
+.ni-change-chip--improved{--ni-ch-tone:#059669;--ni-ch-bg:#dcfce7;--ni-ch-border:#bbf7d0}
+.ni-change-chip--neutral{--ni-ch-tone:#6b7280;--ni-ch-bg:#f3f4f6;--ni-ch-border:#e5e7eb}
+.ni-change-chip--unable{--ni-ch-tone:#9ca3af;--ni-ch-bg:#f9fafb;--ni-ch-border:#d1d5db;border-left-style:dashed;font-style:italic;font-weight:650}
+.ni-change-chip-label{color:#263845}
+.ni-change-chip--unable .ni-change-chip-label{color:#9ca3af;font-style:italic}
+.ni-change-detail{display:none}
+.ni-change-detail.ni-change-open{display:table-row}
+.ni-change-detail-cell{padding:0 8px 8px 42px!important;background:#fbfefe;border-bottom:1px solid #eef6f7}
+.ni-change-lines{display:flex;flex-direction:column;gap:2px;border-left:2px solid #dcebed;padding:6px 0 2px 10px}
+.ni-change-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-size:11px;color:#263845}
+.ni-change-label{font-weight:900;color:#14212b;min-width:64px}
+.ni-change-old{color:#71828f;text-decoration:line-through;text-decoration-color:#cbd5dc}
+.ni-change-arrow{color:#7d8d97}
+.ni-change-new{font-weight:800;color:#14212b}
+.ni-change-delta{font-weight:900}
+.ni-change-line--delay .ni-change-delta{color:#dc2626}
+.ni-change-line--improved .ni-change-delta{color:#059669}
+.ni-change-line--neutral .ni-change-delta{color:#6b7280}
+.ni-change-line--unable{color:#9ca3af;font-style:italic}
+.ni-change-unable-text{font-style:italic;color:#9ca3af}
+tr.ni-change-hidden,tr.ni-change-hidden.ni-change-open{display:none}
+tr.ni-change-hidden + tr.ni-change-detail{display:none}
+.ni-change-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}
+.ni-change-filters{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.ni-change-controls-label{font-size:9px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#7d8d97;margin-right:2px}
+.ni-change-filter{display:inline-flex;align-items:center;border:1px solid #cfe4e7;background:#fff;color:#263845;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:800;cursor:pointer;transition:background .12s,border-color .12s,color .12s}
+.ni-change-filter:hover{background:#eefafa;border-color:#7ddfe5}
+.ni-change-filter:focus-visible{outline:2px solid #00a7a7;outline-offset:1px}
+.ni-change-filter.active{background:#e0f7f8;border-color:#7ddfe5;color:#006b73}
+.ni-change-sort{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.ni-sort-control{border:1px solid #cfe4e7;background:#fff;color:#263845;border-radius:6px;padding:3px 6px;font-size:10px;font-weight:800;cursor:pointer}
+.ni-sort-control:hover{border-color:#7ddfe5}
+.ni-sort-control:focus-visible{outline:2px solid #00a7a7;outline-offset:1px}
+@media(max-width:640px){.ni-change-controls{flex-direction:column;align-items:flex-start}.ni-change-sort{margin-left:0}.ni-change-detail-cell{padding-left:12px!important}}
 """
 
 
@@ -197,6 +242,51 @@ CSS_KEMP = """
 .ni-kemp-toggle.active .ni-kemp-dot{background:#dc2626}
 @media(max-width:1050px){.ni-kpis{grid-template-columns:repeat(3,1fr)}.ni-actions{grid-template-columns:1fr}.ni-body{flex-direction:column}.ni-sidebar{position:relative;width:100%;min-width:0;border-right:0;border-bottom:1px solid #dfe7ea}.ni-filter-group{display:inline-block;vertical-align:top;min-width:180px;margin-right:12px}.ni-main{padding:12px}.ni-graph-card{padding:16px}.ni-graph-head{flex-direction:column}.ni-progress-list{grid-template-columns:120px 1fr 48px}}
 @media(max-width:640px){.ni-kpis{grid-template-columns:repeat(2,1fr);padding:10px}.ni-kpi{min-height:78px}.ni-kpi-value{font-size:24px}.ni-title{font-size:15px}.ni-graph-svg{height:220px}.ni-table{font-size:10px}}
+.ni-expand-col{width:24px;padding:7px 2px 7px 8px!important}
+.ni-expand-cell{padding:7px 2px 7px 8px!important;vertical-align:middle}
+.ni-expand-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:0;border-radius:4px;background:transparent;color:#7d8d97;cursor:pointer;padding:0;transition:background .12s,color .12s}
+.ni-expand-btn:hover{background:#e0f8ef;color:#00734a}
+.ni-expand-btn:focus-visible{outline:2px solid #00a766;outline-offset:1px}
+.ni-expand-btn svg{transition:transform .15s}
+.ni-change-row.ni-change-open .ni-expand-btn svg{transform:rotate(90deg)}
+.ni-change-cell{min-width:180px}
+.ni-change-chips{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.ni-change-chip{--ni-ch-tone:#6b7280;--ni-ch-bg:#f3f4f6;--ni-ch-border:#e5e7eb;display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:999px;background:var(--ni-ch-bg);border:1px solid var(--ni-ch-border);border-left:3px solid var(--ni-ch-tone);color:var(--ni-ch-tone);font-size:10px;font-weight:800;white-space:nowrap;line-height:1.5}
+.ni-change-chip--delay{--ni-ch-tone:#dc2626;--ni-ch-bg:#ffe4e6;--ni-ch-border:#fecdd3}
+.ni-change-chip--improved{--ni-ch-tone:#059669;--ni-ch-bg:#dcfce7;--ni-ch-border:#bbf7d0}
+.ni-change-chip--neutral{--ni-ch-tone:#6b7280;--ni-ch-bg:#f3f4f6;--ni-ch-border:#e5e7eb}
+.ni-change-chip--unable{--ni-ch-tone:#9ca3af;--ni-ch-bg:#f9fafb;--ni-ch-border:#d1d5db;border-left-style:dashed;font-style:italic;font-weight:650}
+.ni-change-chip-label{color:#263845}
+.ni-change-chip--unable .ni-change-chip-label{color:#9ca3af;font-style:italic}
+.ni-change-detail{display:none}
+.ni-change-detail.ni-change-open{display:table-row}
+.ni-change-detail-cell{padding:0 8px 8px 42px!important;background:#fbfefd;border-bottom:1px solid #eef7f4}
+.ni-change-lines{display:flex;flex-direction:column;gap:2px;border-left:2px solid #dcede7;padding:6px 0 2px 10px}
+.ni-change-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;font-size:11px;color:#263845}
+.ni-change-label{font-weight:900;color:#14212b;min-width:64px}
+.ni-change-old{color:#71828f;text-decoration:line-through;text-decoration-color:#cbd5dc}
+.ni-change-arrow{color:#7d8d97}
+.ni-change-new{font-weight:800;color:#14212b}
+.ni-change-delta{font-weight:900}
+.ni-change-line--delay .ni-change-delta{color:#dc2626}
+.ni-change-line--improved .ni-change-delta{color:#059669}
+.ni-change-line--neutral .ni-change-delta{color:#6b7280}
+.ni-change-line--unable{color:#9ca3af;font-style:italic}
+.ni-change-unable-text{font-style:italic;color:#9ca3af}
+tr.ni-change-hidden,tr.ni-change-hidden.ni-change-open{display:none}
+tr.ni-change-hidden + tr.ni-change-detail{display:none}
+.ni-change-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}
+.ni-change-filters{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.ni-change-controls-label{font-size:9px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#7d8d97;margin-right:2px}
+.ni-change-filter{display:inline-flex;align-items:center;border:1px solid #cfe7df;background:#fff;color:#263845;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:800;cursor:pointer;transition:background .12s,border-color .12s,color .12s}
+.ni-change-filter:hover{background:#eefaf5;border-color:#7de5bf}
+.ni-change-filter:focus-visible{outline:2px solid #00a766;outline-offset:1px}
+.ni-change-filter.active{background:#e0f8ef;border-color:#7de5bf;color:#00734a}
+.ni-change-sort{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.ni-sort-control{border:1px solid #cfe7df;background:#fff;color:#263845;border-radius:6px;padding:3px 6px;font-size:10px;font-weight:800;cursor:pointer}
+.ni-sort-control:hover{border-color:#7de5bf}
+.ni-sort-control:focus-visible{outline:2px solid #00a766;outline-offset:1px}
+@media(max-width:640px){.ni-change-controls{flex-direction:column;align-items:flex-start}.ni-change-sort{margin-left:0}.ni-change-detail-cell{padding-left:12px!important}}
 """
 
 
@@ -272,18 +362,85 @@ JS = """
     var dir=th.dataset.sortDir==='asc'?'desc':'asc';
     qsa('th[data-sort-key]', table).forEach(function(h){h.dataset.sortDir='';});
     th.dataset.sortDir=dir;
-    var rows=qsa('tr', tbody);
-    rows.sort(function(a,b){
-      var av=a.getAttribute('data-sort-'+key)||'', bv=b.getAttribute('data-sort-'+key)||'';
+    var pairs=niChangePairs(tbody);
+    pairs.sort(function(a,b){
+      var av=a.main.getAttribute('data-sort-'+key)||'', bv=b.main.getAttribute('data-sort-'+key)||'';
       var an=parseFloat(av), bn=parseFloat(bv);
       if(!isNaN(an)&&!isNaN(bn)) return dir==='asc'?an-bn:bn-an;
       return dir==='asc'?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av));
     });
-    rows.forEach(function(r){tbody.appendChild(r);});
+    niChangeAppend(tbody, pairs);
   };
   window.niV1KempToggle=function(btn){
     var show=btn.classList.toggle('active');
     qsa('.ni-kemp-optional').forEach(function(el){el.classList.toggle('ni-kemp-hidden', !show);});
+  };
+  function niChangePairs(tbody){
+    var out=[], rows=tbody.children, i, r, d;
+    for(i=0;i<rows.length;i++){
+      r=rows[i];
+      if(r.classList && r.classList.contains('ni-change-detail')) continue;
+      d=r.nextElementSibling;
+      out.push({main:r, detail:(d && d.classList && d.classList.contains('ni-change-detail')) ? d : null});
+    }
+    return out;
+  }
+  function niChangeAppend(tbody, pairs){
+    pairs.forEach(function(p){tbody.appendChild(p.main); if(p.detail) tbody.appendChild(p.detail);});
+  }
+  function niChangeApplyFieldFilters(section){
+    var table=section ? section.querySelector('table.ni-table') : null;
+    if(!table) return;
+    var active=qsa('.ni-change-filter.active', section).map(function(b){return b.dataset.filterField;});
+    qsa('tr[data-changed-fields]', table).forEach(function(row){
+      var show=true;
+      if(active.length){
+        var fields=(row.getAttribute('data-changed-fields')||'').split(/\s+/).filter(Boolean);
+        var count=parseInt(row.getAttribute('data-changed-field-count')||'0',10)||0;
+        show=active.some(function(f){
+          if(f==='multiple') return count>=2;
+          return fields.indexOf(f)!==-1;
+        });
+      }
+      row.classList.toggle('ni-change-hidden', !show);
+    });
+  }
+  window.niV1ChangeFilter=function(btn){
+    var on=btn.classList.toggle('active');
+    btn.setAttribute('aria-pressed', on?'true':'false');
+    niChangeApplyFieldFilters(btn.closest('.ni-section'));
+  };
+  window.niV1ChangeToggle=function(btn){
+    var row=btn.closest('tr');
+    var detail=row ? row.nextElementSibling : null;
+    if(!detail || !detail.classList.contains('ni-change-detail')) return;
+    var open=!detail.classList.contains('ni-change-open');
+    detail.classList.toggle('ni-change-open', open);
+    row.classList.toggle('ni-change-open', open);
+    btn.setAttribute('aria-expanded', open?'true':'false');
+    var label=open ? (btn.dataset.labelCollapse||'Collapse row') : (btn.dataset.labelExpand||'Expand row');
+    btn.setAttribute('aria-label', label);
+    btn.title=label;
+  };
+  window.niV1ChangeSort=function(sel){
+    var section=sel.closest('.ni-section');
+    var table=section ? section.querySelector('table.ni-table') : null;
+    var tbody=table ? table.querySelector('tbody') : null;
+    if(!tbody) return;
+    var key=sel.value;
+    var pairs=niChangePairs(tbody);
+    pairs.sort(function(a,b){
+      var am=a.main, bm=b.main;
+      if(key==='impact_desc' || key==='impact_asc'){
+        var an=parseFloat(am.getAttribute('data-impact-score')||'0')||0;
+        var bn=parseFloat(bm.getAttribute('data-impact-score')||'0')||0;
+        return key==='impact_desc' ? bn-an : an-bn;
+      }
+      if(key==='id_asc') return String(am.getAttribute('data-sort-id')||'').localeCompare(String(bm.getAttribute('data-sort-id')||''), undefined, {numeric:true});
+      if(key==='task_asc') return String(am.getAttribute('data-sort-task')||'').localeCompare(String(bm.getAttribute('data-sort-task')||''));
+      return 0;
+    });
+    niChangeAppend(tbody, pairs);
   };
   document.addEventListener('DOMContentLoaded', applyFilters);
   if(document.readyState!=='loading') applyFilters();
@@ -328,6 +485,8 @@ def _display_status(value: Any, language: str) -> str:
             "critical": "Critical",
             "at_risk": "At risk",
             "stable": "Stable",
+            "mismatch": "Mismatch",
+            "critical_mismatch": "Critical mismatch",
         },
         "da": {
             "behind": "Bagud",
@@ -338,6 +497,8 @@ def _display_status(value: Any, language: str) -> str:
             "critical": "Kritisk",
             "at_risk": "I risiko",
             "stable": "På sporet",
+            "mismatch": "Uoverensstemmelse",
+            "critical_mismatch": "Kritisk uoverensstemmelse",
         },
     }
     return labels.get(language, labels["en"]).get(key, raw)
@@ -814,6 +975,171 @@ def _th(language: str, label_key: str, sort_key: str) -> str:
     return f'<th data-sort-key="{sort_key}" onclick="niV1Sort(this)" title="{_e(t(language, "sort"))}">{_e(t(language, label_key))}</th>'
 
 
+_CHANGED_TOTAL_COLUMNS = 7
+
+
+def _changed_field_label(field: str, language: str) -> str:
+    return _e(t(language, "changed_field_" + field))
+
+
+_CHANGE_DELTA_NUM_RE = _re.compile(r"[+-]?\d+(?:\.\d+)?")
+
+
+def _changed_field_tone(detail: dict) -> str:
+    if not detail.get("verified", True):
+        return "unable"
+    field = detail.get("field") or ""
+    if field in ("start", "finish"):
+        # A date moving earlier/later is a directional fact, not inherently
+        # good or bad on its own - it can simply be resequencing. Reserve
+        # colour for fields where the direction has an objectively clear
+        # meaning. See changes/17-08/revision-1.md item 3 ("Be careful with
+        # IMPROVEMENT").
+        return "neutral"
+    semantic = (detail.get("tone") or detail.get("semantic") or "neutral").lower()
+    if semantic in ("delay", "worsened"):
+        return "delay"
+    if semantic == "improved":
+        return "improved"
+    return "neutral"
+
+
+def _change_phrase(field: str, delta_text: str, language: str) -> str | None:
+    """Render a delta as plain language, e.g. "83 days earlier" / "14 pp lower".
+
+    Replaces the previous "+12d" / "-14pp" + arrow-glyph presentation per
+    changes/17-08/revision-1.md item 2 - a reader should understand the
+    change instantly without decoding +/-/arrows. Returns None for fields
+    with no numeric delta (e.g. "id"); the caller then falls back to showing
+    the raw old -> new values instead of guessing at a description.
+    """
+    m = _CHANGE_DELTA_NUM_RE.match(str(delta_text or "").strip())
+    if not m:
+        return None
+    try:
+        magnitude = float(m.group(0))
+    except ValueError:
+        return None
+    if magnitude == 0:
+        return None
+    n = abs(magnitude)
+    count = str(int(round(n))) if float(n).is_integer() else f"{n:g}"
+    if field in ("start", "finish"):
+        direction_key = "change_later" if magnitude > 0 else "change_earlier"
+        day_key = "day_singular" if n == 1 else "day_plural"
+        return f"{count} {t(language, day_key)} {t(language, direction_key)}"
+    if field == "duration":
+        direction_key = "change_longer" if magnitude > 0 else "change_shorter"
+        day_key = "day_singular" if n == 1 else "day_plural"
+        return f"{count} {t(language, day_key)} {t(language, direction_key)}"
+    if field == "progress":
+        direction_key = "change_pp_higher" if magnitude > 0 else "change_pp_lower"
+        return f"{count} {t(language, direction_key)}"
+    return None
+
+
+def _change_chips(details: list, language: str) -> str:
+    if not details:
+        return ""
+    parts: list[str] = []
+    for d in details:
+        field = d.get("field") or "other"
+        old = _e(d.get("old") or "—")
+        new = _e(d.get("new") or "—")
+        verified = bool(d.get("verified", True))
+        tone = _changed_field_tone(d)
+        label = _changed_field_label(field, language)
+        chip_class = f"ni-change-chip ni-change-chip--{tone}"
+        if not verified:
+            title_text = _e(t(language, "unable_to_verify_change"))
+            parts.append(
+                f'<span class="{chip_class}" title="{label}: {title_text}">'
+                f'<span class="ni-change-chip-label">{label}</span>'
+                f'</span>'
+            )
+            continue
+        phrase = _change_phrase(field, d.get("delta_text") or "", language)
+        if phrase:
+            parts.append(
+                f'<span class="{chip_class}" title="{label}: {old} → {new}">'
+                f'<span class="ni-change-chip-label">{label}</span>'
+                f'<span class="ni-change-chip-delta">{_e(phrase)}</span>'
+                f'</span>'
+            )
+        else:
+            # No numeric delta to phrase (e.g. an ID change) - show the raw
+            # old -> new values instead of guessing at a description.
+            parts.append(
+                f'<span class="{chip_class}" title="{label}">'
+                f'<span class="ni-change-chip-label">{label}</span>'
+                f'<span class="ni-change-chip-delta">{old} → {new}</span>'
+                f'</span>'
+            )
+    return "".join(parts)
+
+
+def _change_lines(details: list, language: str) -> str:
+    if not details:
+        return ""
+    parts: list[str] = []
+    for d in details:
+        field = d.get("field") or "other"
+        old = _e(d.get("old") or "—")
+        new = _e(d.get("new") or "—")
+        verified = bool(d.get("verified", True))
+        tone = _changed_field_tone(d)
+        label = _changed_field_label(field, language)
+        line_class = f"ni-change-line ni-change-line--{tone}"
+        if not verified:
+            parts.append(
+                f'<div class="{line_class}">'
+                f'<span class="ni-change-label">{label}</span>'
+                f'<span class="ni-change-unable-text">{_e(t(language, "unable_to_verify_change"))}</span>'
+                f'</div>'
+            )
+            continue
+        # No interpretive "IMPROVEMENT"/"DELAY" badge - the phrase itself
+        # ("83 days earlier") states the fact; Nova does not claim whether a
+        # factual schedule change is good or bad. See revision-1.md item 3.
+        phrase = _change_phrase(field, d.get("delta_text") or "", language)
+        delta_html = f'<span class="ni-change-delta">({_e(phrase)})</span>' if phrase else ""
+        parts.append(
+            f'<div class="{line_class}">'
+            f'<span class="ni-change-label">{label}</span>'
+            f'<span class="ni-change-old">{old}</span>'
+            f'<span class="ni-change-arrow" aria-hidden="true">→</span>'
+            f'<span class="ni-change-new">{new}</span>'
+            f'{delta_html}'
+            f'</div>'
+        )
+    return "".join(parts)
+
+
+def _changed_control_bar(language: str) -> str:
+    return (
+        f'<div class="ni-change-controls">'
+        f'<div class="ni-change-filters" role="group" aria-label="{_e(t(language, "filter_by"))}">'
+        f'<span class="ni-change-controls-label">{_e(t(language, "filter_by"))}:</span>'
+        f'<button type="button" class="ni-change-filter" data-filter-field="start" aria-pressed="false" onclick="niV1ChangeFilter(this)">{_e(t(language, "changed_field_start"))}</button>'
+        f'<button type="button" class="ni-change-filter" data-filter-field="finish" aria-pressed="false" onclick="niV1ChangeFilter(this)">{_e(t(language, "changed_field_finish"))}</button>'
+        f'<button type="button" class="ni-change-filter" data-filter-field="duration" aria-pressed="false" onclick="niV1ChangeFilter(this)">{_e(t(language, "changed_field_duration"))}</button>'
+        f'<button type="button" class="ni-change-filter" data-filter-field="progress" aria-pressed="false" onclick="niV1ChangeFilter(this)">{_e(t(language, "changed_field_progress"))}</button>'
+        f'<button type="button" class="ni-change-filter" data-filter-field="id" aria-pressed="false" onclick="niV1ChangeFilter(this)">{_e(t(language, "changed_field_id"))}</button>'
+        f'<button type="button" class="ni-change-filter" data-filter-field="multiple" aria-pressed="false" onclick="niV1ChangeFilter(this)">{_e(t(language, "changed_field_multiple"))}</button>'
+        f'</div>'
+        f'<label class="ni-change-sort">'
+        f'<span class="ni-change-controls-label">{_e(t(language, "sort_by"))}:</span>'
+        f'<select class="ni-sort-control" onchange="niV1ChangeSort(this)">'
+        f'<option value="impact_desc" selected>{_e(t(language, "sort_impact_desc"))}</option>'
+        f'<option value="impact_asc">{_e(t(language, "sort_impact_asc"))}</option>'
+        f'<option value="id_asc">{_e(t(language, "sort_id_asc"))}</option>'
+        f'<option value="task_asc">{_e(t(language, "sort_task_asc"))}</option>'
+        f'</select>'
+        f'</label>'
+        f'</div>'
+    )
+
+
 def _table_row(row: dict, language: str, variant: str) -> str:
     location = row.get("location") or " / ".join(p for p in [row.get("area"), row.get("floor"), row.get("phase")] if p)
     resource = row.get("resource") or row.get("trade")
@@ -829,14 +1155,53 @@ def _table_row(row: dict, language: str, variant: str) -> str:
         f'<td><span class="ni-chip">{_e(resource)}</span></td>'
     )
     if variant == "changed":
-        return (
-            base
-            +
-            f'<td>{_e(row.get("old_start") or row.get("start_date"))}</td><td>{_e(row.get("new_start") or row.get("start_date"))}</td>'
-            f'<td>{_e(row.get("old_finish") or row.get("finish_date"))}</td><td>{_e(row.get("new_finish") or row.get("finish_date"))}</td>'
-            f'<td>{_e(row.get("old_duration"))}</td><td>{_e(row.get("new_duration") or row.get("duration"))}</td>'
-            f'<td>{_change_type_cell(row.get("change_type"))}</td><td>{_e(row.get("old"))}</td><td>{_e(row.get("new"))}</td></tr>'
+        change_details = row.get("change_details") or []
+        changed_fields = row.get("changed_fields") or []
+        field_attr = _e(" ".join(changed_fields))
+        count_attr = _e(str(len(changed_fields)))
+        try:
+            impact_attr = f"{float(row.get('impact_score') or 0):g}"
+        except (TypeError, ValueError):
+            impact_attr = "0"
+        row_attrs = (
+            f'{optional_cls} {_filter_attrs(row)} {_sort_attrs(row)} '
+            f'data-changed-fields="{field_attr}" data-changed-field-count="{count_attr}" '
+            f'data-impact-score="{_e(impact_attr)}"'
         )
+        detail_attrs = (
+            f'{optional_cls} {_filter_attrs(row)} {_sort_attrs(row)} '
+            f'data-changed-fields="{field_attr}" data-changed-field-count="{count_attr}"'
+        )
+        expand_label = _e(t(language, "expand_row"))
+        collapse_label = _e(t(language, "collapse_row"))
+        chips_html = _change_chips(change_details, language)
+        lines_html = _change_lines(change_details, language)
+        main_row = (
+            f'<tr class="ni-change-row" {row_attrs}>'
+            f'<td class="ni-expand-cell">'
+            f'<button type="button" class="ni-expand-btn" aria-expanded="false" '
+            f'aria-label="{expand_label}" title="{expand_label}" '
+            f'data-label-expand="{expand_label}" data-label-collapse="{collapse_label}" '
+            f'onclick="niV1ChangeToggle(this)">'
+            f'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            f'stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            f'<polyline points="9 6 15 12 9 18"/></svg>'
+            f'</button></td>'
+            f'<td>{_e(row.get("id"))}</td>'
+            f'<td class="ni-task">{_e(row.get("task_name"))}</td>'
+            f'<td>{_e(row.get("phase"))}</td>'
+            f'<td><span class="ni-chip">{_e(location) if (location or "").strip() else _e(t(language, "unassigned"))}</span></td>'
+            f'<td><span class="ni-chip">{_e(resource) if (resource or "").strip() else "—"}</span></td>'
+            f'<td class="ni-change-cell"><div class="ni-change-chips">{chips_html}</div></td>'
+            f'</tr>'
+        )
+        detail_row = (
+            f'<tr class="ni-change-detail" {detail_attrs}>'
+            f'<td class="ni-change-detail-cell" colspan="{_CHANGED_TOTAL_COLUMNS}">'
+            f'<div class="ni-change-lines">{lines_html}</div>'
+            f'</td></tr>'
+        )
+        return main_row + detail_row
     if variant == "critical_path":
         return (
             base
@@ -869,13 +1234,11 @@ def _render_table(language: str, title_key: str, rows: list[dict], variant: str 
     section_is_optional = title_key in optional_sections
     if variant == "changed":
         headers = [
+            '<th class="ni-expand-col" scope="col"></th>',
             _th(language, "id", "id"), _th(language, "task_name", "task"),
             _th(language, "phase_col", "phase"), _th(language, "building", "area"),
-            _th(language, "trade", "resource"), _th(language, "old_start_col", "actual"),
-            _th(language, "new_start_col", "expected"), _th(language, "old_finish_col", "deviation"),
-            _th(language, "new_finish_col", "days"), _th(language, "old_duration_col", "float"),
-            _th(language, "new_duration_col", "resource"), f"<th>{_e(t(language, 'change_col'))}</th>",
-            f"<th>{_e(t(language, 'before_col'))}</th>", f"<th>{_e(t(language, 'after_col'))}</th>",
+            _th(language, "trade", "resource"),
+            f"<th>{_e(t(language, 'change_compact'))}</th>",
         ]
     elif variant == "critical_path":
         headers = [
@@ -907,9 +1270,11 @@ def _render_table(language: str, title_key: str, rows: list[dict], variant: str 
     tone, _icon = _section_icon(title_key)
     optional_section_attr = ' ni-kemp-optional ni-kemp-hidden' if section_is_optional else ''
     section_cls = f"ni-section ni-table-section ni-section-{tone or 'teal'}{optional_section_attr}"
+    control_bar = _changed_control_bar(language) if variant == "changed" else ""
     return f"""
 <section class="{section_cls}">
   {_section_heading(language, title_key, len(rows) if count is None else count)}
+  {control_bar}
   <div class="ni-table-wrap">
     <table class="ni-table"><thead><tr>{''.join(headers)}</tr></thead><tbody>{body}</tbody></table>
   </div>
@@ -1089,7 +1454,7 @@ def format_health_v1_as_html(data: dict, language: str = "en") -> str:
     return _render_payload(adapt_health_dashboard(data, language), language)
 
 
-def format_kemp_v1_as_html(data: dict, language: str = "en") -> str:
+def format_kemp_v1_as_html(data: dict, language: str = "da") -> str:
     """Version 1.0 health variant for the Kemp endpoint.
 
     Receives the same payload as ``format_health_v1_as_html`` but the rendered
@@ -1105,7 +1470,7 @@ def format_predictive_v1_as_html(data: dict, language: str = "en") -> str:
     return _render_payload(adapt_predictive_dashboard(data, language), language)
 
 
-def format_kemp_predictive_v1_as_html(data: dict, language: str = "en") -> str:
+def format_kemp_predictive_v1_as_html(data: dict, language: str = "da") -> str:
     """Version 1.0 predictive dashboard — Kemp (green) variant.
 
     Same payload/layout as ``format_predictive_v1_as_html``; only the color

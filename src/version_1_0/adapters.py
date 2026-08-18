@@ -7,6 +7,8 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
+from .diffs import diff_activities
+
 logger = logging.getLogger(__name__)
 logger.info("[version_1_0.adapters] module loaded — IDENTITY_FIX_2026_07_27 logging active")
 
@@ -154,10 +156,15 @@ def _activity_row(item: dict, *, task_key: str = "activity") -> dict:
 
 
 def _filters(rows: list[dict], extra_task_types: list[str] | None = None) -> dict:
-    areas = sorted({r.get("area") for r in rows if r.get("area")})
-    floors = sorted({r.get("floor") for r in rows if r.get("floor")})
-    phases = sorted({r.get("phase") for r in rows if r.get("phase")})
-    trades = sorted({r.get("trade") for r in rows if r.get("trade")})
+    def _clean_meta(value: Any) -> str:
+        if not isinstance(value, str):
+            return ""
+        return value.strip()
+
+    areas = sorted({v for v in (_clean_meta(r.get("area")) for r in rows) if v})
+    floors = sorted({v for v in (_clean_meta(r.get("floor")) for r in rows) if v})
+    phases = sorted({v for v in (_clean_meta(r.get("phase")) for r in rows) if v})
+    trades = sorted({v for v in (_clean_meta(r.get("trade")) for r in rows) if v})
     task_types = sorted(set(extra_task_types or []))
     return {
         "areas": areas,
@@ -352,57 +359,67 @@ def adapt_health_dashboard(data: dict, language: str = "en") -> dict:
     stage_rows = [_activity_row(i) for i in stage_items]
     critical_path_rows = [_activity_row(i) for i in critical_path_items]
     changed_rows = []
-    grouped_changes = {}
     change_items = changed.get("changes", [])
     logger.info(
         f"[version_1_0.adapters][changed_activities] {len(change_items)} raw change records; "
         f"sample_act_id_source={[ (c.get('id'), c.get('activity')) for c in change_items[:5] ]!r}"
     )
-    for item in change_items:
-        act_id = item.get("id") or item.get("activity")
-        if act_id not in grouped_changes:
-            row = _activity_row(item)
-            row.update(
-                {
-                    "changes_list": [],
-                    "old_start": _clean(item.get("old_start")),
-                    "new_start": _clean(item.get("new_start")),
-                    "old_finish": _clean(item.get("old_finish")),
-                    "new_finish": _clean(item.get("new_finish")),
-                    "old_duration": _clean(item.get("old_duration")),
-                    "new_duration": _clean(item.get("new_duration")),
-                }
-            )
-            grouped_changes[act_id] = row
-        
-        # Merge properties if subsequent changes have data
-        current_row = grouped_changes[act_id]
-        if not current_row["old_start"]: current_row["old_start"] = _clean(item.get("old_start"))
-        if not current_row["new_start"]: current_row["new_start"] = _clean(item.get("new_start"))
-        if not current_row["old_finish"]: current_row["old_finish"] = _clean(item.get("old_finish"))
-        if not current_row["new_finish"]: current_row["new_finish"] = _clean(item.get("new_finish"))
-        if not current_row["old_duration"]: current_row["old_duration"] = _clean(item.get("old_duration"))
-        if not current_row["new_duration"]: current_row["new_duration"] = _clean(item.get("new_duration"))
 
-        chg_type = _clean(item.get("change_type"))
-        old_val = _clean(item.get("old"))
-        new_val = _clean(item.get("new"))
-        current_row["changes_list"].append(f"{chg_type}: {old_val} -> {new_val}")
+    activity_diffs = diff_activities(change_items)
 
-    for row in grouped_changes.values():
-        row["change_type"] = ", ".join([c.split(":")[0] for c in row["changes_list"]])
-        if len(row["changes_list"]) > 1:
-            row["old"] = "Multiple"
-            row["new"] = "Multiple"
-        else:
-            parts = row["changes_list"][0].split("->")
-            if len(parts) == 2:
-                row["old"] = parts[0].split(":")[1].strip() if ":" in parts[0] else parts[0].strip()
-                row["new"] = parts[1].strip()
-            else:
-                row["old"] = "-"
-                row["new"] = "-"
-        changed_rows.append(row)
+    for ad in activity_diffs:
+        change_details = [
+            {
+                "field": fd.field,
+                "old": fd.old,
+                "new": fd.new,
+                "delta_text": fd.delta,
+                "tone": fd.semantic,
+                "verified": fd.verify == "verified",
+            }
+            for fd in ad.field_diffs
+        ]
+        legacy_old = (
+            "Multiple"
+            if len(ad.field_diffs) > 1
+            else (ad.field_diffs[0].old if ad.field_diffs else "-")
+        )
+        legacy_new = (
+            "Multiple"
+            if len(ad.field_diffs) > 1
+            else (ad.field_diffs[0].new if ad.field_diffs else "-")
+        )
+        changed_rows.append(
+            {
+                "id": ad.activity_id,
+                "source_id": ad.activity_id,
+                "task_name": ad.activity_name,
+                "phase": ad.phase,
+                "area": ad.area,
+                "floor": "",
+                "location": ad.area,
+                "resource": ad.trade,
+                "trade": ad.trade,
+                "task_type": "",
+                "change_details": change_details,
+                "changed_fields": list(ad.changed_fields),
+                "changed_field_count": len(ad.changed_fields),
+                "impact_score": ad.impact_score,
+                "verify": ad.verify,
+                "changes_list": [
+                    f"{fd.field}: {fd.old} -> {fd.new}" for fd in ad.field_diffs
+                ],
+                "change_type": ", ".join(ad.changed_fields),
+                "old_start": "",
+                "new_start": "",
+                "old_finish": "",
+                "new_finish": "",
+                "old_duration": "",
+                "new_duration": "",
+                "old": legacy_old,
+                "new": legacy_new,
+            }
+        )
 
     all_rows = behind + ahead + stage_rows + changed_rows + critical_path_rows
     total = _si(es.get("selected_activities") or sn.get("total_activities"), len(all_rows))
