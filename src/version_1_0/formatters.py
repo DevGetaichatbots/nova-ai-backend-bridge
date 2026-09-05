@@ -113,7 +113,7 @@ CSS = """
 .ni-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.ni-action{border:1px solid #cfe4e7;border-left:3px solid #00a7a7;border-radius:7px;padding:10px;background:#f8fefe}.ni-action-rank{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#00a7a7,#0284c7);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;margin-bottom:8px}.ni-action-text{font-size:12px;font-weight:800;color:#14212b}.ni-action-meta{font-size:11px;color:#63737c;margin-top:6px}
 .ni-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px}.ni-summary-item{border:1px solid #dcebed;border-left:3px solid #00a7a7;border-radius:7px;background:#f8fefe;padding:9px 10px}.ni-summary-label{font-size:9px;text-transform:uppercase;letter-spacing:.35px;font-weight:900;color:#71828f}.ni-summary-value{margin-top:3px;font-size:15px;font-weight:900;color:#14212b}.ni-summary-note{grid-column:1/-1;font-size:12px;color:#4c5f6b;background:#fbfefe;border:1px solid #e4eff1;border-radius:7px;padding:10px}
 .ni-summary-dark{background:linear-gradient(135deg,#06343b 0%,#0a4650 58%,#08313b 100%);border:1px solid #0e6770;border-radius:8px;padding:14px;color:#eefefe;box-shadow:0 8px 22px rgba(4,47,54,.20);margin-bottom:14px}.ni-summary-dark .ni-section-title,.ni-summary-dark .ni-summary-value{color:#eefefe}.ni-summary-dark .ni-summary-label{color:#9ed8dc}.ni-summary-dark .ni-summary-item{background:rgba(4,38,45,.45);border:1px solid rgba(151,221,226,.28)}.ni-summary-dark .ni-summary-note{background:rgba(4,38,45,.45);border:1px solid rgba(151,221,226,.28);color:#d7eeee}
-.ni-table-wrap{max-height:360px;overflow:auto;border:1px solid #dcebed;border-radius:7px}.ni-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}.ni-table th{position:sticky;top:0;background:#eaf8fa;color:#0f5f68;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border-bottom:1px solid #bfe5e9;white-space:nowrap;cursor:pointer}.ni-table td{padding:7px 8px;border-bottom:1px solid #eef6f7;color:#263845;vertical-align:top}.ni-table tr:nth-child(even) td{background:#fbfefe}.ni-table tr:last-child td{border-bottom:0}.ni-task{font-weight:800;color:#14212b;min-width:180px}.ni-chip{display:inline-flex;padding:2px 6px;border-radius:4px;background:#e7f7f8;color:#0f5f68;font-size:10px;font-weight:800;margin:1px 2px 1px 0}.ni-neg{color:#dc2626;font-weight:900}.ni-pos{color:#059669;font-weight:900}
+.ni-table-wrap{max-height:360px;overflow:auto;border:1px solid #dcebed;border-radius:7px}.ni-table{width:100%;border-collapse:separate;border-spacing:0;font-size:11px}.ni-table th{position:sticky;top:0;background:#eaf8fa;color:#0f5f68;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;border-bottom:1px solid #bfe5e9;white-space:nowrap;cursor:pointer}.ni-table td{padding:7px 8px;border-bottom:1px solid #eef6f7;color:#263845;vertical-align:top}.ni-table tr:nth-child(even) td{background:#fbfefe}.ni-table tr:last-child td{border-bottom:0}.ni-task{font-weight:800;color:#14212b;min-width:180px}.ni-chip{display:inline-flex;padding:2px 6px;border-radius:4px;background:#e7f7f8;color:#0f5f68;font-size:10px;font-weight:800;margin:1px 2px 1px 0}.ni-unverified-id{background:#f3f4f6!important;color:#6b7280!important;border:1px solid #e5e7eb!important;font-weight:700!important}.ni-neg{color:#dc2626;font-weight:900}.ni-pos{color:#059669;font-weight:900}
 .ni-section-red .ni-table th{background:#fff1f2;color:#be123c;border-bottom-color:#fecdd3}.ni-section-green .ni-table th{background:#ecfdf5;color:#047857;border-bottom-color:#bbf7d0}.ni-section-amber .ni-table th{background:#fffbeb;color:#b45309;border-bottom-color:#fde68a}.ni-section-blue .ni-table th{background:#eff8ff;color:#0369a1;border-bottom-color:#bae6fd}
 .ni-kpi.ni-kemp-hidden,.ni-section.ni-kemp-hidden,tr.ni-kemp-hidden{display:none!important}
 .ni-kemp-toggle{width:100%;display:flex;align-items:center;gap:7px;border:1px dashed #cfe4e7;background:#f4fafa;color:#0f5f68;border-radius:6px;padding:7px 8px;font-size:11px;font-weight:800;text-align:left;cursor:pointer;margin-bottom:4px}
@@ -137,6 +137,17 @@ CSS = """
 .ni-change-chip--improved{--ni-ch-tone:#059669;--ni-ch-bg:#dcfce7;--ni-ch-border:#bbf7d0}
 .ni-change-chip--neutral{--ni-ch-tone:#6b7280;--ni-ch-bg:#f3f4f6;--ni-ch-border:#e5e7eb}
 .ni-change-chip--unable{--ni-ch-tone:#9ca3af;--ni-ch-bg:#f9fafb;--ni-ch-border:#d1d5db;border-left-style:dashed;font-style:italic;font-weight:650}
+.ni-trust-badge{--ni-tb-tone:#6b7280;--ni-tb-bg:#f3f4f6;--ni-tb-border:#e5e7eb;display:inline-flex;align-items:center;padding:1px 7px;border-radius:999px;background:var(--ni-tb-bg);border:1px solid var(--ni-tb-border);border-left:3px solid var(--ni-tb-tone);color:var(--ni-tb-tone);font-size:10px;font-weight:800;white-space:nowrap;line-height:1.5;cursor:default}
+.ni-trust-badge--verified{--ni-tb-tone:#059669;--ni-tb-bg:#dcfce7;--ni-tb-border:#bbf7d0}
+.ni-trust-badge--review{--ni-tb-tone:#d97706;--ni-tb-bg:#fef3c7;--ni-tb-border:#fde68a}
+.ni-trust-badge--unverified{--ni-tb-tone:#6b7280;--ni-tb-bg:#f3f4f6;--ni-tb-border:#e5e7eb;border-left-style:dashed;font-style:italic}
+.ni-trust-panel{margin:14px 22px 0;padding:12px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;display:flex;flex-direction:column;gap:8px}
+.ni-trust-panel-title{font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#71828f}
+.ni-trust-summary{font-size:14px;font-weight:800;color:#14212b;cursor:help}
+.ni-trust-breakdown{display:flex;flex-wrap:wrap;gap:6px}
+.ni-trust-features{display:flex;flex-wrap:wrap;gap:10px;margin-top:2px;padding-top:8px;border-top:1px solid #eef2f3}
+.ni-trust-feature{display:inline-flex;align-items:center;gap:6px;font-size:11px}
+.ni-trust-feature-label{color:#4c5f6b;font-weight:700}
 .ni-change-chip-label{color:#263845}
 .ni-change-chip--unable .ni-change-chip-label{color:#9ca3af;font-style:italic}
 .ni-change-detail{display:none}
@@ -168,7 +179,9 @@ tr.ni-change-hidden + tr.ni-change-detail{display:none}
 .ni-sort-control:hover{border-color:#7ddfe5}
 .ni-sort-control:focus-visible{outline:2px solid #00a7a7;outline-offset:1px}
 @media(max-width:640px){.ni-change-controls{flex-direction:column;align-items:flex-start}.ni-change-sort{margin-left:0}.ni-change-detail-cell{padding-left:12px!important}}
-"""
+/* __TL_7_3_EVIDENCE_CSS_HOOK__ */.ni-evidence-label{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;background:#f4f6f7;color:#5a6470;border:1px solid #cdd3d7;font-size:9px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;line-height:1.5;margin-left:8px;vertical-align:middle}.ni-evidence-label--source_data{border-style:solid}.ni-evidence-label--nova_calculation{border-style:double;border-width:2px}.ni-evidence-label--nova_insight{border-style:dashed}.ni-evidence-label--nova_forecast{border-style:dotted}
+/* __TL_7_4_FORECAST_CSS_HOOK__ */.ni-forecast-panel{background:#fffbf5;border:1px solid #e5e7eb;border-left:4px dotted #d97706;border-radius:12px;padding:20px 24px;margin:16px 0}.ni-forecast-panel-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}.ni-forecast-panel-title{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#92400e}.ni-forecast-headline-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f;margin-bottom:4px}.ni-forecast-headline{font-size:15px;font-style:italic;color:#1e293b;line-height:1.5;margin-bottom:14px}.ni-forecast-impact-row{display:flex;align-items:baseline;gap:8px;margin-bottom:14px}.ni-forecast-impact-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f}.ni-forecast-impact-value{font-size:20px;font-weight:900;color:#b45309}.ni-forecast-drivers-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f;margin-bottom:6px}.ni-forecast-drivers{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:4px}.ni-forecast-driver{font-size:13px;color:#263845;padding-left:14px;position:relative}.ni-forecast-driver::before{content:'\2022';position:absolute;left:0;color:#d97706}.ni-forecast-basis-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f;margin-bottom:3px}.ni-forecast-basis{font-size:12px;color:#71828f;font-style:italic;line-height:1.45}.ni-forecast-caution{margin-top:12px;padding:8px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:12px;color:#9a3412;font-weight:700}.ni-forecast-risk-panel{background:#fff;border:1px solid #e5e7eb;border-left:4px dotted #d97706;border-radius:10px;padding:16px 20px;margin:12px 0}.ni-forecast-risk-title{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#92400e;margin-bottom:10px}.ni-forecast-risk-row{margin-bottom:8px}.ni-forecast-risk-row-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f;margin-bottom:3px}.ni-forecast-risk-row-text{font-size:13px;color:#263845;line-height:1.45}/* __TL_7_5_WHY_CSS_HOOK__ */.ni-why-btn{background:none;border:none;padding:0;margin-left:6px;font-size:11px;font-weight:700;color:#4b83f0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;vertical-align:baseline}.ni-why-btn:hover{color:#2f5fc4}.ni-why-panel{margin-top:6px;padding:8px 10px;background:#f4f6f7;border:1px solid #e1e5e7;border-radius:6px;font-size:12px;color:#4b5563;line-height:1.45}.ni-why-panel[hidden]{display:none}/* __TL_7_7_PDF_CSS_HOOK__ */.ni-methodology-footer{margin:20px 22px 4px;padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:12px;font-weight:600;color:#9a3412}"""
+
 
 
 CSS_KEMP = """
@@ -256,6 +269,17 @@ CSS_KEMP = """
 .ni-change-chip--improved{--ni-ch-tone:#059669;--ni-ch-bg:#dcfce7;--ni-ch-border:#bbf7d0}
 .ni-change-chip--neutral{--ni-ch-tone:#6b7280;--ni-ch-bg:#f3f4f6;--ni-ch-border:#e5e7eb}
 .ni-change-chip--unable{--ni-ch-tone:#9ca3af;--ni-ch-bg:#f9fafb;--ni-ch-border:#d1d5db;border-left-style:dashed;font-style:italic;font-weight:650}
+.ni-trust-badge{--ni-tb-tone:#6b7280;--ni-tb-bg:#f3f4f6;--ni-tb-border:#e5e7eb;display:inline-flex;align-items:center;padding:1px 7px;border-radius:999px;background:var(--ni-tb-bg);border:1px solid var(--ni-tb-border);border-left:3px solid var(--ni-tb-tone);color:var(--ni-tb-tone);font-size:10px;font-weight:800;white-space:nowrap;line-height:1.5;cursor:default}
+.ni-trust-badge--verified{--ni-tb-tone:#059669;--ni-tb-bg:#dcfce7;--ni-tb-border:#bbf7d0}
+.ni-trust-badge--review{--ni-tb-tone:#d97706;--ni-tb-bg:#fef3c7;--ni-tb-border:#fde68a}
+.ni-trust-badge--unverified{--ni-tb-tone:#6b7280;--ni-tb-bg:#f3f4f6;--ni-tb-border:#e5e7eb;border-left-style:dashed;font-style:italic}
+.ni-trust-panel{margin:14px 22px 0;padding:12px 16px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;display:flex;flex-direction:column;gap:8px}
+.ni-trust-panel-title{font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#71828f}
+.ni-trust-summary{font-size:14px;font-weight:800;color:#14212b;cursor:help}
+.ni-trust-breakdown{display:flex;flex-wrap:wrap;gap:6px}
+.ni-trust-features{display:flex;flex-wrap:wrap;gap:10px;margin-top:2px;padding-top:8px;border-top:1px solid #eef2f3}
+.ni-trust-feature{display:inline-flex;align-items:center;gap:6px;font-size:11px}
+.ni-trust-feature-label{color:#4c5f6b;font-weight:700}
 .ni-change-chip-label{color:#263845}
 .ni-change-chip--unable .ni-change-chip-label{color:#9ca3af;font-style:italic}
 .ni-change-detail{display:none}
@@ -287,7 +311,9 @@ tr.ni-change-hidden + tr.ni-change-detail{display:none}
 .ni-sort-control:hover{border-color:#7de5bf}
 .ni-sort-control:focus-visible{outline:2px solid #00a766;outline-offset:1px}
 @media(max-width:640px){.ni-change-controls{flex-direction:column;align-items:flex-start}.ni-change-sort{margin-left:0}.ni-change-detail-cell{padding-left:12px!important}}
-"""
+/* __TL_7_3_EVIDENCE_CSS_HOOK__ */.ni-evidence-label{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;background:#f4f6f7;color:#5a6470;border:1px solid #cdd3d7;font-size:9px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;line-height:1.5;margin-left:8px;vertical-align:middle}.ni-evidence-label--source_data{border-style:solid}.ni-evidence-label--nova_calculation{border-style:double;border-width:2px}.ni-evidence-label--nova_insight{border-style:dashed}.ni-evidence-label--nova_forecast{border-style:dotted}
+/* __TL_7_4_FORECAST_CSS_HOOK__ */.ni-forecast-panel{background:#f9f7ff;border:1px solid #e5e7eb;border-left:4px dotted #d97706;border-radius:12px;padding:20px 24px;margin:16px 0}.ni-forecast-panel-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}.ni-forecast-panel-title{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#92400e}.ni-forecast-headline-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f;margin-bottom:4px}.ni-forecast-headline{font-size:15px;font-style:italic;color:#14212b;line-height:1.5;margin-bottom:14px}.ni-forecast-impact-row{display:flex;align-items:baseline;gap:8px;margin-bottom:14px}.ni-forecast-impact-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f}.ni-forecast-impact-value{font-size:20px;font-weight:900;color:#b45309}.ni-forecast-drivers-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f;margin-bottom:6px}.ni-forecast-drivers{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:4px}.ni-forecast-driver{font-size:13px;color:#263845;padding-left:14px;position:relative}.ni-forecast-driver::before{content:'\2022';position:absolute;left:0;color:#d97706}.ni-forecast-basis-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f;margin-bottom:3px}.ni-forecast-basis{font-size:12px;color:#71828f;font-style:italic;line-height:1.45}.ni-forecast-caution{margin-top:12px;padding:8px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;font-size:12px;color:#9a3412;font-weight:700}.ni-forecast-risk-panel{background:#fff;border:1px solid #e5e7eb;border-left:4px dotted #d97706;border-radius:10px;padding:16px 20px;margin:12px 0}.ni-forecast-risk-title{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#92400e;margin-bottom:10px}.ni-forecast-risk-row{margin-bottom:8px}.ni-forecast-risk-row-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#71828f;margin-bottom:3px}.ni-forecast-risk-row-text{font-size:13px;color:#263845;line-height:1.45}/* __TL_7_5_WHY_CSS_HOOK__ */.ni-why-btn{background:none;border:none;padding:0;margin-left:6px;font-size:11px;font-weight:700;color:#4b83f0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;vertical-align:baseline}.ni-why-btn:hover{color:#2f5fc4}.ni-why-panel{margin-top:6px;padding:8px 10px;background:#f4f6f7;border:1px solid #e1e5e7;border-radius:6px;font-size:12px;color:#4b5563;line-height:1.45}.ni-why-panel[hidden]{display:none}/* __TL_7_7_PDF_CSS_HOOK__ */.ni-methodology-footer{margin:20px 22px 4px;padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:12px;font-weight:600;color:#9a3412}/* __TL_9_1_SOURCE_VIEWER_CSS_HOOK__ */.ni-activity-detail-card{background:#ffffff;border:1px solid #cfe4e7;border-radius:10px;padding:16px 20px;margin:12px 0;box-shadow:0 2px 8px rgba(0,0,0,.04)}.ni-activity-detail-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}.ni-activity-brand{font-size:9px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#008c8c;background:#eaf8fa;padding:2px 6px;border-radius:4px}.ni-activity-detail-name{font-size:15px;font-weight:800;color:#14212b;margin:0}.ni-activity-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;padding-bottom:14px;border-bottom:1px solid #e5eaec;margin-bottom:14px}.ni-activity-detail-item{display:flex;flex-direction:column;gap:3px}.ni-activity-detail-k{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#71828f}.ni-activity-detail-v{font-size:13px;font-weight:800;color:#14212b}.ni-source-verification{background:#f8fbfc;border:1px solid #e2eaee;border-radius:8px;padding:12px 14px}.ni-source-verification-title{font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#0f5f68;margin-bottom:8px}.ni-source-verification-grid{display:flex;flex-direction:column;gap:8px}.ni-source-row{display:flex;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap}.ni-source-label{font-weight:700;color:#5a6b78;min-width:110px}.ni-source-value{color:#14212b;font-weight:600}.ni-view-source-btn{display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;background:#008c8c;color:#fff;border:none;font-size:11px;font-weight:700;cursor:pointer;transition:background .15s}.ni-view-source-btn:hover{background:#006b6b}.ni-source-non-paginated-tag{font-size:11px;font-style:italic;color:#71828f}"""
+
 
 
 JS = """
@@ -375,6 +401,13 @@ JS = """
     var show=btn.classList.toggle('active');
     qsa('.ni-kemp-optional').forEach(function(el){el.classList.toggle('ni-kemp-hidden', !show);});
   };
+  window.niV1WhyToggle=function(btn){
+    var panel=btn.nextElementSibling;
+    if(!panel) return;
+    var opening=panel.hasAttribute('hidden');
+    if(opening){panel.removeAttribute('hidden');} else {panel.setAttribute('hidden','');}
+    btn.setAttribute('aria-expanded', opening?'true':'false');
+  };
   function niChangePairs(tbody){
     var out=[], rows=tbody.children, i, r, d;
     for(i=0;i<rows.length;i++){
@@ -441,6 +474,21 @@ JS = """
       return 0;
     });
     niChangeAppend(tbody, pairs);
+  };
+  window.niV1ViewSource=function(btn){
+    var schedule=btn.getAttribute('data-schedule')||'new';
+    var page=parseInt(btn.getAttribute('data-page'),10)||1;
+    var bboxRaw=btn.getAttribute('data-bbox')||'[]';
+    var bbox=[];
+    try{bbox=JSON.parse(bboxRaw);}catch(e){bbox=[];}
+    if(window.parent){
+      window.parent.postMessage({
+        type:'NOVA_VIEW_SOURCE',
+        scheduleRole:schedule,
+        pageNumber:page,
+        boundingBox:bbox
+      },'*');
+    }
   };
   document.addEventListener('DOMContentLoaded', applyFilters);
   if(document.readyState!=='loading') applyFilters();
@@ -632,16 +680,77 @@ def _section_icon(title_key: str) -> tuple[str, str]:
     return cfg.get(title_key, ("", '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>'))
 
 
-def _section_heading(language: str, title_key: str, count: int | None = None, sub_key: str | None = None) -> str:
+def _section_heading(language: str, title_key: str, count: int | None = None, sub_key: str | None = None, evidence_class: str | None = None) -> str:
     tone, icon = _section_icon(title_key)
     count_text = f" ({count})" if count is not None else ""
     sub = f'<p class="ni-section-sub">{_e(t(language, sub_key))}</p>' if sub_key else ""
+    chip = _evidence_class_chip(evidence_class, language) if evidence_class else ""
     return (
         '<div class="ni-section-head"><div class="ni-title-wrap">'
         f'<div class="ni-section-icon {tone}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">{icon}</svg></div>'
-        f'<div><h2 class="ni-section-title">{_e(t(language, title_key))}{count_text}</h2>{sub}</div>'
+        f'<div><h2 class="ni-section-title">{_e(t(language, title_key))}{count_text}{chip}</h2>{sub}</div>'
         '</div></div>'
     )
+
+
+# TL-7.3 — Evidence-class chip (brief §45/§46). Single neutral chip; the
+# four classes are differentiated by border-style (solid / double /
+# dashed / dotted) rather than colour, so the chip does not compete
+# with the three-tone trust badge (brief §21's "no Christmas tree"
+# constraint). The visible text carries the class; the border-style
+# reinforces it for users who scan visually.
+_EVIDENCE_CLASS_TO_LABEL_KEY = {
+    "source_data": "evidence_class_source_data",
+    "nova_calculation": "evidence_class_nova_calculation",
+    "nova_insight": "evidence_class_nova_insight",
+    "nova_forecast": "evidence_class_nova_forecast",
+}
+_EVIDENCE_CLASS_TO_TT_KEY = {
+    "source_data": "evidence_class_source_data_tt",
+    "nova_calculation": "evidence_class_nova_calculation_tt",
+    "nova_insight": "evidence_class_nova_insight_tt",
+    "nova_forecast": "evidence_class_nova_forecast_tt",
+}
+
+
+def _evidence_class_chip(cls: str, language: str) -> str:
+    """Render a small evidence-class chip. Returns an empty string when
+    `cls` is not one of the four `EvidenceClass` values — guards against
+    drift if a future field gets a typo'd class.
+
+    `cls` is the *enum value string* (`source_data` / `nova_calculation` /
+    `nova_insight` / `nova_forecast`), matching how `_classification`
+    stores it on the parsed response (TL-5.6).
+    """
+    label_key = _EVIDENCE_CLASS_TO_LABEL_KEY.get(cls)
+    if not label_key:
+        return ""
+    label = _e(t(language, label_key))
+    tooltip = _e(t(language, _EVIDENCE_CLASS_TO_TT_KEY[cls]))
+    return (
+        f'<span class="ni-evidence-label ni-evidence-label--{cls}" '
+        f'title="{tooltip}">{label}</span>'
+    )
+
+
+# TL-7.3 — KPI → evidence class mapping. The KPI cards' values are
+# deterministically computed in Python (TL-5.x) or lifted from the
+# schedule; we tag each one with the right evidence class so the user
+# sees the distinction without the section becoming a Christmas tree
+# (one chip per card is enough — there are at most six KPIs).
+_KPI_TO_EVIDENCE_CLASS = {
+    "activities_analyzed": "source_data",        # total activity count from the schedule
+    "delayed_activities": "nova_calculation",   # = insight_data.delayed_count
+    "critical_activities": "nova_calculation",   # = insight_data.critical_count
+    "important_next": "nova_calculation",
+    "monitor": "nova_calculation",
+    "highest_risk": "nova_calculation",           # most_overdue_days
+    "changed_table": "source_data",
+    "critical_path_table": "source_data",
+    "behind_table": "source_data",
+    "ahead_table": "source_data",
+    "point_no_return": "nova_calculation",
+}
 
 
 def _render_kpis(payload: dict, language: str) -> str:
@@ -652,12 +761,19 @@ def _render_kpis(payload: dict, language: str) -> str:
         suffix = _e(item.get("suffix", ""))
         is_optional = item.get("key") in optional_keys
         optional_cls = " ni-kemp-optional ni-kemp-hidden" if is_optional else ""
+        # TL-7.3: small evidence-class chip on each KPI card so the
+        # user sees "this number came from the source" vs "Nova
+        # computed it". One chip per KPI — section stays readable.
+        key = item.get("key", "")
+        cls = _KPI_TO_EVIDENCE_CLASS.get(key)
+        chip = _evidence_class_chip(cls, language) if cls else ""
         parts.append(
             f'<div class="ni-kpi {tone}{optional_cls}">'
-            f'<div class="ni-kpi-icon">{_kpi_icon(item.get("key", ""))}</div>'
+            f'<div class="ni-kpi-icon">{_kpi_icon(key)}</div>'
             f'<div class="ni-kpi-text">'
-            f'<div class="ni-kpi-label">{_e(t(language, item.get("key", "")))}</div>'
+            f'<div class="ni-kpi-label">{_e(t(language, key))}</div>'
             f'<div class="ni-kpi-value">{_e(item.get("value", 0))}{suffix}</div>'
+            f'{chip}'
             f'</div>'
             f'</div>'
         )
@@ -1140,6 +1256,154 @@ def _changed_control_bar(language: str) -> str:
     )
 
 
+# ============================================================================
+# TL-7.1 — Three-state trust badge (brief §21, §46)
+# ============================================================================
+# Brief §21 specifies exactly three visible states, with tooltips verbatim
+# (already the canonical `trust_*` strings in `localization.py`, TL-0.4).
+# This is the ONE renderer for that state everywhere it appears — reusing
+# the `ni-change-chip`'s CSS technique (a pill shape driven by
+# `--ni-*-tone`/`--ni-*-bg`/`--ni-*-border` custom properties, so one base
+# rule plus three one-line modifiers covers all three states) rather than
+# inventing new markup, per this task's own Do item 4. It gets its own
+# class prefix (`ni-trust-badge`, not `ni-change-chip`) because the two are
+# semantically different concepts — a trust *state* is not a field
+# *change type* — and `ni-change-chip` already has its own filtering/JS
+# behaviour (`niV1ChangeFilter`) that a trust badge must not be swept into
+# by sharing a class name.
+#
+# Colour choice (Do item 3 — "check this explicitly, as the Kemp palette's
+# green is close to the verified state colour"): the same three hex values
+# are used in BOTH `CSS` and `CSS_KEMP` (not brand-tinted), so the trust
+# semantic never depends on which dashboard is rendering it:
+#   - VERIFIED: #059669 (the same emerald already used for "improved"
+#     change-chips — an established "good" signal in this codebase, and
+#     visibly a different, cooler green than Kemp's own brand teal-green
+#     `#00a766`/`#02c79b` used for logos, buttons, and section borders
+#     throughout `CSS_KEMP` — so a verified badge reads as a trust signal,
+#     not as "more Kemp branding").
+#   - REVIEW: #d97706 (amber — the site's one existing amber, `.ni-amber`/
+#     `.ni-section-amber`). Amber vs. either palette's green is a
+#     large hue-distance (orange-family vs. green-family) — there is no
+#     realistic confusion here, verified directly against both palettes'
+#     actual green values in `tests/trust/test_badges.py`.
+#   - UNVERIFIED: #6b7280 neutral grey with a dashed left border — brief
+#     §21 allows "(red/neutral)"; grey is chosen to match the existing
+#     `ni-unverified-id` precedent (TL-2.4) exactly, and because red reads
+#     as an error/alarm (brief §42's later, related concern: uncertainty
+#     should never feel broken). One colour for "could not verify"
+#     everywhere it appears, not two.
+_TRUST_BADGE_TONE = {
+    "verified": "ni-trust-badge--verified",
+    "review": "ni-trust-badge--review",
+    "unverified": "ni-trust-badge--unverified",
+}
+
+
+def _trust_badge(state: Any, language: str, *, suppress_verified: bool = True) -> str:
+    """TL-7.1: render brief §21's three-state trust badge for `state`
+    (a `TrustState` member or its `.value` string — accepts both, same
+    convention as `src.trust.vocabulary`'s own accessors).
+
+    `suppress_verified` (default `True`) is this task's own Do item 2:
+    "show badges only where they carry information... suppress VERIFIED
+    badges on rows where everything is verified" — a wall of green badges
+    is the Christmas tree brief §21 forbids. Calling this once per
+    field/row with the default naturally produces that effect: only
+    REVIEW/UNVERIFIED states ever render anything. A caller building an
+    explicit legend (where showing all three states is the point) passes
+    `suppress_verified=False`.
+    """
+    from src.trust.vocabulary import TrustState, trust_label, trust_tooltip
+
+    key = state.value if isinstance(state, TrustState) else str(state)
+    if suppress_verified and key == TrustState.VERIFIED.value:
+        return ""
+    tone_class = _TRUST_BADGE_TONE.get(key)
+    if tone_class is None:
+        # No fourth state exists (this task's own Do-not rule) — an
+        # unrecognized key is a caller bug, not a state to render.
+        return ""
+    label = _e(trust_label(state, language))
+    tooltip = _e(trust_tooltip(state, language))
+    return f'<span class="ni-trust-badge {tone_class}" title="{tooltip}">{label}</span>'
+
+
+def _id_cell(row_id: Any, language: str) -> str:
+    val = (str(row_id) if row_id is not None else "").strip()
+    if val:
+        return _e(val)
+    from src.trust.vocabulary import TrustState
+
+    # TL-2.4's unverified-id marker is exactly the TL-7.1 UNVERIFIED badge
+    # — one canonical renderer, not two divergent implementations of the
+    # same "could not verify" signal. `suppress_verified` never applies
+    # here (this call only ever passes UNVERIFIED), kept at its default.
+    return _trust_badge(TrustState.UNVERIFIED, language)
+
+
+# ============================================================================
+# TL-7.5 — "Why?" explanations (brief §32)
+# ============================================================================
+# Brief §32: every major recommendation should support a "Why?" that turns
+# Nova from magical into explainable. Content is assembled from already-
+# recorded deterministic evidence — TL-5.2's root-cause/downstream
+# classification, TL-6.3's supporting facts, TL-7.2's trust breakdown —
+# and NEVER generated by a model: a generated rationale for a
+# deterministic decision would itself be an unverified claim (this
+# task's own Do-not rule). Disclosure is client-side (`niV1WhyToggle` in
+# `JS`), the same pattern already used by the Changed Activities table's
+# row expander — no server round-trip, so it keeps working inside the
+# sandboxed iframe both apps render into and survives PDF export with no
+# extra plumbing.
+
+
+def _why_button(explanation: str, language: str) -> str:
+    """Render a `Why?` disclosure button + hidden panel. Returns `''`
+    when `explanation` is empty — no affordance for a flag with nothing
+    recorded behind it; an empty "Why?" that reveals nothing would be
+    worse than no button at all."""
+    if not explanation:
+        return ""
+    return (
+        f'<button type="button" class="ni-why-btn" aria-expanded="false" '
+        f'onclick="niV1WhyToggle(this)">{_e(t(language, "why_button"))}</button>'
+        f'<div class="ni-why-panel" hidden>{_e(explanation)}</div>'
+    )
+
+
+def _why_delayed_row_explanation(row: dict, language: str) -> str:
+    """Deterministic basis for a delayed activity's priority flag.
+    `is_root_cause` / `blocked_by_id` / `days_overdue` all come from
+    `compute_predictive_facts` (TL-5.2) via the dependency graph — never
+    model judgement. Deliberately does not cite the priority
+    thresholds themselves (`_CRITICAL_DAYS_OVERDUE_UNCALIBRATED` etc. in
+    `src/trust/predictive_facts.py`) — those constants are explicitly
+    UNCALIBRATED pending real K&L data (`TL-3.6`/`TL-4.7`'s posture);
+    stating them to the user would dress up a provisional heuristic as a
+    validated business rule."""
+    parts = []
+    if row.get("is_root_cause"):
+        parts.append(t(language, "why_root_cause"))
+    elif row.get("blocked_by_id"):
+        parts.append(t(language, "why_downstream_of").format(id=row["blocked_by_id"]))
+    days = row.get("days_overdue")
+    if days:
+        parts.append(t(language, "why_days_overdue").format(days=days))
+    return " ".join(p for p in parts if p)
+
+
+def _why_action_explanation(action: dict, language: str) -> str:
+    """Deterministic basis for an executive action: the count of
+    `related_task_ids` it names — a real array already on the action
+    object (`predictive_agent.py`'s schema), not a number invented for
+    the explanation."""
+    ids = action.get("related_task_ids") or []
+    if not ids:
+        return ""
+    return t(language, "why_action_related").format(count=len(ids))
+
+
 def _table_row(row: dict, language: str, variant: str) -> str:
     location = row.get("location") or " / ".join(p for p in [row.get("area"), row.get("floor"), row.get("phase")] if p)
     resource = row.get("resource") or row.get("trade")
@@ -1148,7 +1412,7 @@ def _table_row(row: dict, language: str, variant: str) -> str:
     optional_cls = ' ni-kemp-optional ni-kemp-hidden' if row.get("_kemp_optional") else ''
     base = (
         f'<tr{optional_cls} {_filter_attrs(row)} {_sort_attrs(row)}>'
-        f'<td>{_e(row.get("id"))}</td>'
+        f'<td>{_id_cell(row.get("id"), language)}</td>'
         f'<td class="ni-task">{_e(row.get("task_name"))}</td>'
         f'<td>{_e(row.get("phase"))}</td>'
         f'<td><span class="ni-chip">{_e(location)}</span></td>'
@@ -1187,7 +1451,7 @@ def _table_row(row: dict, language: str, variant: str) -> str:
             f'stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
             f'<polyline points="9 6 15 12 9 18"/></svg>'
             f'</button></td>'
-            f'<td>{_e(row.get("id"))}</td>'
+            f'<td>{_id_cell(row.get("id"), language)}</td>'
             f'<td class="ni-task">{_e(row.get("task_name"))}</td>'
             f'<td>{_e(row.get("phase"))}</td>'
             f'<td><span class="ni-chip">{_e(location) if (location or "").strip() else _e(t(language, "unassigned"))}</span></td>'
@@ -1210,12 +1474,13 @@ def _table_row(row: dict, language: str, variant: str) -> str:
             f'<td>{_e(_format_float(row.get("float_days"), language))}</td><td class="{dev_cls}">{dev:+.0f}%</td></tr>'
         )
     if variant == "delayed":
+        why_html = _why_button(_why_delayed_row_explanation(row, language), language)
         return (
             base
             +
             f'<td>{_e(row.get("start_date"))}</td><td>{_e(row.get("finish_date"))}</td>'
             f'<td>{_e(row.get("duration"))}</td><td class="ni-neg">{_e(row.get("days_overdue"))}</td>'
-            f'<td>{_e(_display_status(row.get("priority") or row.get("status"), language))}</td></tr>'
+            f'<td>{_e(_display_status(row.get("priority") or row.get("status"), language))}{why_html}</td></tr>'
         )
     return (
         base
@@ -1285,19 +1550,28 @@ def _render_actions(payload: dict, language: str) -> str:
     actions = payload.get("actions", [])
     if not actions:
         return ""
+    # TL-7.3: executive_actions are forward-looking imperatives
+    # (NOVA_FORECAST) — the section heading carries the chip.
     parts = [
         '<section class="ni-section ni-actions-section">',
-        _section_heading(language, "actions"),
+        _section_heading(language, "actions", evidence_class="nova_forecast"),
         '<div class="ni-actions">',
     ]
     for idx, action in enumerate(actions[:3], 1):
         text = action.get("action") or action.get("issue") or action.get("activity") or ""
         responsible = action.get("responsible") or ""
         deadline = action.get("deadline") or ""
+        # Per-action chip: same class as the section (NOVA_FORECAST).
+        action_chip = _evidence_class_chip("nova_forecast", language)
+        # TL-7.5: "Why?" — the deterministic count of delayed activities
+        # this action was synthesized from, never a generated rationale.
+        why_html = _why_button(_why_action_explanation(action, language), language)
         parts.append(
             f'<div class="ni-action"><div class="ni-action-rank">{idx}</div>'
             f'<div class="ni-action-text">{_e(text)}</div>'
-            f'<div class="ni-action-meta">{_e(responsible)} {_e(deadline)}</div></div>'
+            f'<div class="ni-action-meta">{_e(responsible)} {_e(deadline)}{why_html}</div>'
+            f'{action_chip}'
+            f'</div>'
         )
     parts.append("</div></section>")
     return "\n".join(parts)
@@ -1307,6 +1581,202 @@ def _summary_value(value: Any, suffix: str = "") -> str:
     if value in (None, ""):
         return "-"
     return f"{value}{suffix}"
+
+
+# ============================================================================
+# TL-7.4 — Forecast never renders like observed fact (brief §31)
+# ============================================================================
+# Brief §31: "Never make a prediction visually indistinguishable from an
+# observed fact." The forecast panel is the structural answer to this.
+#
+# Key design decisions:
+# - `.ni-forecast-panel` uses a dotted left-border, deliberately matching
+#   the `ni-evidence-label--nova_forecast` border-style from TL-7.3 so the
+#   dotted motif consistently signals "this is a forecast" across the UI.
+# - The confidence HIGH/MEDIUM/LOW band reuses the trust badge CSS family
+#   (verified/review/unverified) because the mapping is natural and adds
+#   no new colours (brief §21 "no Christmas tree").
+# - LOW confidence renders a caution block INSIDE the panel at the point
+#   of display — not in a footer or footnote.
+# - Zero-delay case (Do-not rule, TL-5.6's TestStructuralRiskOverride):
+#   chip = nova_insight, heading changes, estimated_delay_impact omitted.
+
+_CONFIDENCE_BADGE_TONE = {
+    "HIGH": "ni-trust-badge--verified",
+    "MEDIUM": "ni-trust-badge--review",
+    "LOW": "ni-trust-badge--unverified",
+}
+
+
+def _confidence_badge(level: str | None, language: str) -> str:
+    """Render the HIGH/MEDIUM/LOW confidence band as a badge pill that
+    reuses the trust badge CSS family. Always rendered (AC1 requires
+    every forecast element to carry its band)."""
+    if not level:
+        return ""
+    key = str(level).upper().strip()
+    tone_class = _CONFIDENCE_BADGE_TONE.get(key)
+    if tone_class is None:
+        return ""
+    # `key` is guaranteed HIGH/MEDIUM/LOW here (the `tone_class is None`
+    # check above already returned "" for anything else), so this default
+    # is unreachable — kept as a real, existing key rather than the
+    # now-removed bare `forecast_confidence` (TL-7.6: that key was a
+    # Flask-localizer collision source, see ADR-039).
+    label_key = {
+        "HIGH": "forecast_confidence_high",
+        "MEDIUM": "forecast_confidence_medium",
+        "LOW": "forecast_confidence_low",
+    }.get(key, "forecast_confidence_medium")
+    # Tooltip uses the per-key label (UX improvement — each badge gets
+    # a meaningful title that matches its visible text). Also avoids the
+    # bare "Confidence" string in the rendered HTML, which the naive
+    # `str.replace` Flask localizer would have translated to "Tillidsniveau"
+    # (TL-7.6 — see ADR-039).
+    return (
+        f'<span class="ni-trust-badge {tone_class}" title="{_e(t(language, label_key))}">'
+        f'{_e(t(language, label_key))}</span>'
+    )
+
+
+def _render_predictive_snapshot(payload: dict, language: str) -> str:
+    """TL-7.4: render `predictive_snapshot` as an unambiguously forecast
+    card — structurally distinct from the observed KPI tiles (brief §31).
+
+    Zero-delay case (Do-not rule from TL-5.6 TestStructuralRiskOverride):
+      chip = nova_insight, heading = structural-risk label,
+      estimated_delay_impact omitted entirely.
+    LOW confidence: caution block rendered inside the panel at the point
+    of display (AC4 — not in a footnote).
+    """
+    snap = payload.get("predictive_snapshot") or {}
+    what_will_happen = str(snap.get("what_will_happen") or "").strip()
+    if not what_will_happen:
+        return ""
+
+    estimated_delay = str(snap.get("estimated_delay_impact") or "").strip()
+    confidence_level = str(snap.get("confidence_level") or "").upper().strip()
+    confidence_basis = str(snap.get("confidence_basis") or "").strip()
+    main_delay_drivers = snap.get("main_delay_drivers") or []
+
+    # Count delayed activities from the kpis array to drive the zero-delay
+    # re-classification without requiring a separate counter on the payload.
+    delayed_count = 0
+    for kpi in payload.get("kpis", []):
+        if kpi.get("key") == "delayed_activities":
+            delayed_count = int(kpi.get("value") or 0)
+            break
+
+    is_zero_delay = delayed_count == 0
+
+    # Zero-delay: chip is nova_insight (Do-not rule); heading changes.
+    chip_class = "nova_insight" if is_zero_delay else "nova_forecast"
+    chip = _evidence_class_chip(chip_class, language)
+    conf_badge = _confidence_badge(confidence_level, language)
+
+    if is_zero_delay:
+        heading = _e(t(language, "forecast_no_delay_observed"))
+    else:
+        heading = _e(t(language, "forecast_outlook_heading"))
+
+    # Impact row — omit entirely when zero delays (nothing to delay).
+    impact_html = ""
+    if not is_zero_delay and estimated_delay:
+        impact_html = (
+            f'<div class="ni-forecast-impact-row">'
+            f'<span class="ni-forecast-impact-label">{_e(t(language, "forecast_delay_impact"))}</span>'
+            f'<span class="ni-forecast-impact-value">{_e(estimated_delay)}</span>'
+            f'</div>'
+        )
+
+    # Key drivers list.
+    drivers_html = ""
+    if main_delay_drivers:
+        items = "".join(
+            f'<li class="ni-forecast-driver">{_e(str(d))}</li>'
+            for d in main_delay_drivers
+        )
+        drivers_html = (
+            f'<div class="ni-forecast-drivers-label">{_e(t(language, "forecast_key_drivers"))}</div>'
+            f'<ul class="ni-forecast-drivers">{items}</ul>'
+        )
+
+    # Confidence basis sentence.
+    basis_html = ""
+    if confidence_basis:
+        basis_html = (
+            f'<div class="ni-forecast-basis-label">{_e(t(language, "forecast_basis"))}</div>'
+            f'<div class="ni-forecast-basis">{_e(confidence_basis)}</div>'
+        )
+
+    # LOW-confidence caution rendered inside the panel at the point of
+    # display (AC4 — not in a footnote).
+    caution_html = ""
+    if confidence_level == "LOW":
+        caution_html = (
+            f'<div class="ni-forecast-caution">'
+            f'\u26a0\ufe0f {_e(t(language, "forecast_confidence_low"))}'
+            f'</div>'
+        )
+
+    return (
+        f'<section class="ni-section ni-forecast-panel">'
+        f'<div class="ni-forecast-panel-head">'
+        f'<span class="ni-forecast-panel-title">{heading}</span>'
+        f'{chip}{conf_badge}'
+        f'</div>'
+        f'<div class="ni-forecast-headline-label">{_e(t(language, "forecast_what_will_happen"))}</div>'
+        f'<div class="ni-forecast-headline">{_e(what_will_happen)}</div>'
+        f'{impact_html}'
+        f'{drivers_html}'
+        f'{basis_html}'
+        f'{caution_html}'
+        f'</section>'
+    )
+
+
+def _render_biggest_risk(payload: dict, language: str) -> str:
+    """TL-7.4: render `predictive_biggest_risk` as a compact forecast card.
+    `will_block` (forecast consequence) and `prevent_action_now` (forecast
+    action) both carry the `nova_forecast` evidence chip. Returns '' if empty."""
+    risk = payload.get("predictive_biggest_risk") or {}
+    risk_title = str(risk.get("risk_title") or "").strip()
+    will_block = str(risk.get("will_block") or "").strip()
+    prevent_action = str(risk.get("prevent_action_now") or "").strip()
+    if not (will_block or prevent_action):
+        return ""
+
+    chip = _evidence_class_chip("nova_forecast", language)
+    title_text = _e(risk_title or t(language, "forecast_biggest_risk"))
+
+    will_block_html = ""
+    if will_block:
+        will_block_html = (
+            f'<div class="ni-forecast-risk-row">'
+            f'<div class="ni-forecast-risk-row-label">{_e(t(language, "forecast_will_block"))}</div>'
+            f'<div class="ni-forecast-risk-row-text">{_e(will_block)}{chip}</div>'
+            f'</div>'
+        )
+
+    prevent_html = ""
+    if prevent_action:
+        prevent_chip = _evidence_class_chip("nova_forecast", language)
+        prevent_html = (
+            f'<div class="ni-forecast-risk-row">'
+            f'<div class="ni-forecast-risk-row-label">{_e(t(language, "forecast_prevent_action"))}</div>'
+            f'<div class="ni-forecast-risk-row-text">{_e(prevent_action)}{prevent_chip}</div>'
+            f'</div>'
+        )
+
+    return (
+        f'<div class="ni-forecast-risk-panel">'
+        f'<div class="ni-forecast-risk-title">{title_text}</div>'
+        f'{will_block_html}'
+        f'{prevent_html}'
+        f'</div>'
+    )
+
+
 
 
 def _render_summary(payload: dict, language: str) -> str:
@@ -1365,6 +1835,171 @@ def _mark_optional_health_items(payload: dict, tables: dict) -> None:
     payload["_kemp_optional_section_titles"] = ["critical_path_table"]
 
 
+# ============================================================================
+# TL-7.2 — Project-level trust indicator (brief §22, §23; resolves Q-4)
+# ============================================================================
+# The five features `compute_feature_confidences` (TL-4.4) computes, in
+# display order — a fixed order, not the dict's insertion order, so the
+# indicator reads the same way on every render.
+_TRUST_FEATURE_ORDER = (
+    ("schedule_parsing", "trust_feature_schedule_parsing"),
+    ("activity_matching", "trust_feature_activity_matching"),
+    ("progress_comparison", "trust_feature_progress_comparison"),
+    ("critical_path", "trust_feature_critical_path"),
+    ("forecast", "trust_feature_forecast"),
+)
+
+
+def _trust_breakdown_pill(count: int, tone_key: str, label_key: str, language: str) -> str:
+    """One `N <label>` pill in the project trust breakdown — e.g. '8
+    verified', '1 requires review'. Shares `_trust_badge`'s CSS classes
+    (same pill shape, same three tones) but not its function: the
+    per-field badge's fixed vocabulary ('Verified', 'Unable to Verify')
+    does not fit brief §22's count-carrying phrasing ('N verified'), so
+    this builds the markup directly from the `trust_breakdown_*` labels
+    instead of going through `_trust_badge`."""
+    label = _e(t(language, label_key))
+    return f'<span class="ni-trust-badge ni-trust-badge--{tone_key}">{count} {label}</span>'
+
+def _render_project_trust(payload: dict, language: str) -> str:
+    """TL-7.2: brief §22's project-level trust summary, rendered once at
+    the top of the dashboard (brief: 'before the PM has to ask'), never
+    per-row — this is a single, deliberately unmissable answer to 'can we
+    trust this dashboard,' not another wall of badges.
+
+    Brief §23's Do-not rule ('do not publish a percentage whose
+    denominator you cannot state in one sentence') is enforced by
+    construction, not by convention: the headline sentence names the
+    denominator inline ('N of M activities...'), and the exact same N/M
+    numbers are repeated, with the full methodology, in the `title`
+    tooltip — there is no percentage rendered anywhere that is not
+    immediately traceable to these two integers. The word 'accurate'
+    never appears anywhere in this function or the strings it reads
+    (`grep -ri accurate` over the rendered output is this task's own
+    AC4 — see `tests/trust/test_project_trust_indicator.py`).
+
+    A fully-verified project renders just the verified pill — the
+    tooltip phrases it as 'all N passed verification cleanly' rather
+    than enumerating zero-review/zero-unresolved buckets (TL-7.2's
+    test contract: 'no 0 require review noise'). The dynamic
+    `trust_denominator_*` template per locale keeps EN and DA aligned.
+    """
+    trust = payload.get("project_trust") or {}
+    total = int(trust.get("total") or 0)
+    verified = int(trust.get("verified") or 0)
+    review = int(trust.get("review") or 0)
+    unresolved = int(trust.get("unresolved") or 0)
+
+    if total <= 0:
+        return ""
+
+    summary_text = _e(
+        t(language, "trust_project_summary").format(verified=verified, total=total)
+    )
+
+    # Dynamic tooltip: only mention buckets that exist. A fully-verified
+    # project's tooltip reads "all N passed verification cleanly" — not
+    # "N verified, 0 require review, 0 could not be matched" (which is
+    # the noise the test pins against).
+    if payload.get("mode") == "health":
+        if review == 0 and unresolved == 0:
+            tooltip_raw = t(language, "trust_denominator_tt_all_verified").format(
+                total=total, verified=verified,
+            )
+        else:
+            tooltip_raw = t(language, "trust_denominator_tt").format(
+                total=total, verified=verified, review=review, unresolved=unresolved,
+            )
+    else:
+        delayed = int(trust.get("delayed") or 0)
+        tooltip_raw = t(language, "trust_denominator_tt_predictive").format(
+            total=total, delayed=delayed, unresolved=unresolved,
+        )
+    tooltip = _e(tooltip_raw)
+
+    pills = [_trust_breakdown_pill(verified, "verified", "trust_breakdown_verified", language)]
+    if review:
+        pills.append(_trust_breakdown_pill(review, "review", "trust_breakdown_review", language))
+    if unresolved:
+        pills.append(_trust_breakdown_pill(unresolved, "unverified", "trust_breakdown_unresolved", language))
+
+    # TL-4.4's feature-specific confidences (brief §30: "more useful than
+    # the single number") — health dashboard ONLY; the predictive
+    # pipeline does not compute this breakdown (see
+    # `compute_project_trust_breakdown_predictive`'s own docstring on why
+    # a fabricated one is not rendered here instead).
+    feature_html = ""
+    if payload.get("mode") == "health":
+        feat_conf = (payload.get("summary") or {}).get("feature_confidence") or payload.get("feature_confidence")
+        if feat_conf:
+            feature_pills = []
+            for feature_key, label_key in _TRUST_FEATURE_ORDER:
+                state = feat_conf.get(feature_key)
+                badge = _trust_badge(state, language, suppress_verified=False) if state else ""
+                if not badge:
+                    badge = f'<span class="ni-trust-badge ni-trust-badge--unverified">{_e(t(language, "trust_feature_not_available"))}</span>'
+
+                feature_pills.append(
+                    f'<span class="ni-trust-feature">'
+                    f'<span class="ni-trust-feature-label">{_e(t(language, label_key))}</span>{badge}'
+                    f'</span>'
+                )
+            feature_html = f'<div class="ni-trust-features">{"".join(feature_pills)}</div>'
+
+    # TL-7.5: "Why?" on the trust indicator itself — the same methodology
+    # sentence already carried in the hover tooltip, made click-accessible
+    # (touch devices have no hover; screen readers don't reliably surface
+    # `title`). Same content, second affordance — not a second source of
+    # truth to keep in sync.
+    why_html = _why_button(tooltip_raw, language)
+
+    return (
+        f'<div class="ni-trust-panel">'
+        f'<div class="ni-trust-panel-title">{_e(t(language, "trust_project_heading"))}{why_html}</div>'
+        f'<div class="ni-trust-summary" title="{tooltip}">{summary_text}</div>'
+        f'<div class="ni-trust-breakdown">{"".join(pills)}</div>'
+        f'{feature_html}'
+        f'</div>'
+    )
+
+
+# ============================================================================
+# TL-7.7 — PDF export carries the same trust model (brief §44)
+# ============================================================================
+# Brief §44: "Do not make dashboard transparent but PDF reports absolute."
+# A PDF export has none of the live dashboard's interactivity — no hover
+# tooltips, no click-to-expand "Why?" panels — so a reader who only ever
+# sees the forwarded PDF must still be told, in plain static text, when
+# the underlying comparison was not fully clean. Rendered always (both
+# on-screen and in the PDF export), not injected only at PDF-render time,
+# so there is exactly one code path that decides whether it appears.
+
+
+def _render_methodology_footer(payload: dict, language: str) -> str:
+    """Brief §44's partial-verification footer. Reuses TL-7.2's own
+    `project_trust` breakdown — the same `review`/`unresolved` counts
+    already shown in the trust panel above — rather than computing a
+    second, independent "is this partial?" signal that could disagree
+    with the panel a few hundred pixels above it.
+
+    Returns `''` when the comparison is fully verified (`review == 0`
+    and `unresolved == 0`) — a footer on every single report, verified
+    or not, would be exactly the noise brief §21's "no Christmas tree"
+    rule and TL-7.2's own "no `0 require review` noise" precedent both
+    argue against.
+    """
+    trust = payload.get("project_trust") or {}
+    review = int(trust.get("review") or 0)
+    unresolved = int(trust.get("unresolved") or 0)
+    if review == 0 and unresolved == 0:
+        return ""
+    return (
+        f'<div class="ni-methodology-footer">'
+        f'{_e(t(language, "pdf_methodology_footer"))}'
+        f'</div>'
+    )
+
+
 def _render_payload(payload: dict, language: str, variant: str = "default") -> str:
     language = lang_code(language)
     active_css = CSS_KEMP if variant in ("kemp", "kemp-predictive") else CSS
@@ -1411,6 +2046,8 @@ def _render_payload(payload: dict, language: str, variant: str = "default") -> s
         table_html.extend(
             [
                 _render_actions(payload, language),
+                _render_predictive_snapshot(payload, language),   # TL-7.4
+                _render_biggest_risk(payload, language),          # TL-7.4
                 _render_table(language, "critical_now", tables.get("critical", []), "delayed"),
                 _render_table(language, "important_next", tables.get("important", []), "delayed"),
                 _render_table(language, "monitor", tables.get("monitor", []), "delayed"),
@@ -1436,6 +2073,7 @@ def _render_payload(payload: dict, language: str, variant: str = "default") -> s
     </div>
     <div class="ni-status {status}">{_e(_status_label(payload, language))}</div>
   </header>
+  {_render_project_trust(payload, language)}
   {_render_kpis(payload, language)}
   <div class="ni-body">
     {_render_sidebar(payload, language)}
@@ -1445,6 +2083,7 @@ def _render_payload(payload: dict, language: str, variant: str = "default") -> s
       {_render_progress_graph(payload, language)}
       {_render_area_progress(payload, language)}
       {''.join(table_html)}
+      {_render_methodology_footer(payload, language)}
     </main>
   </div>
 </div>"""

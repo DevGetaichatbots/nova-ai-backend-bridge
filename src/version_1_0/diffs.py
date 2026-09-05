@@ -15,7 +15,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +236,7 @@ class ActivityDiff:
 # ---------------------------------------------------------------------------
 
 
+@runtime_checkable
 class Verifier(Protocol):
     """Pluggable gate for the future Confidence / Verification Layer."""
 
@@ -376,20 +377,55 @@ def _diff_finish(item: dict, verifier: Verifier | None, activity_id: str) -> Fie
 
 
 def _diff_duration(item: dict, verifier: Verifier | None, activity_id: str) -> FieldDiff | None:
-    old_val = item.get("old_duration")
-    new_val = item.get("new_duration")
-    if _values_equal(old_val, new_val):
+    explicit_old = item.get("old_duration")
+    explicit_new = item.get("new_duration")
+
+    # Prefer deriving duration from (finish - start) when all four dates are
+    # parseable. The explicit duration field upstream is often in a different
+    # unit (hours/weeks) than the dates (days), and the date-derived duration
+    # is unambiguous. (changes/17-08/revision-1.md item 1)
+    old_start_d = _parse_date(item.get("old_start"))
+    old_finish_d = _parse_date(item.get("old_finish"))
+    new_start_d = _parse_date(item.get("new_start"))
+    new_finish_d = _parse_date(item.get("new_finish"))
+    if old_start_d and old_finish_d and new_start_d and new_finish_d:
+        old_n = (old_finish_d - old_start_d).days
+        new_n = (new_finish_d - new_start_d).days
+        old_val: Any = f"{old_n}d"
+        new_val: Any = f"{new_n}d"
+        verify = "verified"
+    else:
+        # Dates missing - fall back to the explicit duration field, with the
+        # unit-suffix helper (h/w -> days) the upstream may carry.
+        old_n = _parse_duration_days(explicit_old)
+        new_n = _parse_duration_days(explicit_new)
+        old_val = explicit_old
+        new_val = explicit_new
+        verify = _verify_one(verifier, activity_id, "duration", explicit_old, explicit_new)
+
+    if old_n == new_n and not _normalize_str(explicit_old) and not _normalize_str(explicit_new):
         return None
-    old_n = _parse_duration_days(old_val)
-    new_n = _parse_duration_days(new_val)
-    if old_n == new_n and not _normalize_str(old_val) and not _normalize_str(new_val):
+    if old_n == new_n and (
+        old_start_d is None or new_start_d is None
+    ):
         return None
-    verify = _verify_one(verifier, activity_id, "duration", old_val, new_val)
+
     delta_days = new_n - old_n
-    if abs(delta_days) > _MAX_PLAUSIBLE_DAY_DELTA:
+    # Backstop: a single duration value above the plausible-day ceiling
+    # (~10 years) almost always signals that upstream data is in hours /
+    # minutes / weeks while the dashboard is reading it as days. The
+    # delta-only check previously let these through (e.g. 5832 -> 9456
+    # gives a 3624-day delta that looked superficially plausible). Treat
+    # any individual absolute value above the ceiling as unable_to_verify.
+    if (
+        abs(old_n) > _MAX_PLAUSIBLE_DAY_DELTA
+        or abs(new_n) > _MAX_PLAUSIBLE_DAY_DELTA
+        or abs(delta_days) > _MAX_PLAUSIBLE_DAY_DELTA
+    ):
         logger.warning(
-            f"[version_1_0.diffs][_diff_duration] implausible delta days={delta_days} "
-            f"activity={activity_id!r} old={old_val!r} new={new_val!r} - marking unable_to_verify"
+            f"[version_1_0.diffs][_diff_duration] implausible magnitude "
+            f"old_n={old_n} new_n={new_n} delta={delta_days} "
+            f"activity={activity_id!r} old={explicit_old!r} new={explicit_new!r} - marking unable_to_verify"
         )
         return FieldDiff("duration", old_val, new_val, None, "neutral", "unable_to_verify")
     delta = f"{delta_days:+d}d"
@@ -432,10 +468,15 @@ def _diff_progress(item: dict, verifier: Verifier | None, activity_id: str) -> F
 
 
 def _diff_id(item: dict, verifier: Verifier | None, activity_id: str) -> FieldDiff | None:
-    # ID changes only when the upstream data carries explicit old_id/new_id
-    # signals. We never infer ID changes from other keys.
+    # ID changes when the upstream data carries explicit old_id/new_id signals,
+    # or when item['field'] / item['change_type'] specifies 'id' with old/new.
     old_val = item.get("old_id")
     new_val = item.get("new_id")
+    if old_val is None and new_val is None:
+        ct = _normalize_str(item.get("field") or item.get("change_type")).lower()
+        if ct in ("id", "activity id"):
+            old_val = item.get("old")
+            new_val = item.get("new")
     if old_val is None and new_val is None:
         return None
     if _values_equal(old_val, new_val):
@@ -524,6 +565,8 @@ def diff_activities(
         ):
             if not _normalize_str(existing.get(key)) and _normalize_str(item.get(key)):
                 existing[key] = item.get(key)
+        if not existing.get("field") and item.get("field"):
+            existing["field"] = item.get("field")
         if not existing.get("change_type") and item.get("change_type"):
             existing["change_type"] = item.get("change_type")
         # Carry through old/new free-text as a fallback for progress / id.

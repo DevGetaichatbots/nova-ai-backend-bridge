@@ -164,8 +164,6 @@ cython_debug/
 attached_assets/
 analysis_debug.txt
 
-# Test / experimental files
-tests/
+# Test / experimental outputs
 test_outputs/
 scratch/
-src/experimental/

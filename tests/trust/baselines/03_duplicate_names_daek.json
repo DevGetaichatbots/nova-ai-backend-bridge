@@ -1,0 +1,429 @@
+{
+  "fixture_id": "03_duplicate_names_daek",
+  "health": {
+    "comparison": {
+      "action_recommendations": [],
+      "changed_activities": {
+        "added": [
+          "Daek"
+        ],
+        "changes": [
+          {
+            "activity": "Daek",
+            "area": "Project / Building A / 2.",
+            "change_type": "Finish Date",
+            "duration": "40",
+            "finish_date": "06-06-2026",
+            "floor": "2. Floor",
+            "id": "1",
+            "location": {
+              "area": "Project / Building A / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 2.",
+            "new": "06-06-2026",
+            "new_duration": "40",
+            "new_finish": "06-06-2026",
+            "new_start": "01-06-2026",
+            "old": "05-06-2026",
+            "old_duration": "32",
+            "old_finish": "05-06-2026",
+            "old_start": "01-06-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building A / 2.",
+            "source_id": "1",
+            "start_date": "01-06-2026",
+            "trade": "2. Floor / Project / Building A / 2.",
+            "trade_code": "2. Floor / Project / Building A / 2."
+          },
+          {
+            "activity": "Daek",
+            "area": "Project / Building A / 2.",
+            "change_type": "Duration",
+            "duration": "40",
+            "finish_date": "06-06-2026",
+            "floor": "2. Floor",
+            "id": "1",
+            "location": {
+              "area": "Project / Building A / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 2.",
+            "new": "40",
+            "new_duration": "40",
+            "new_finish": "06-06-2026",
+            "new_start": "01-06-2026",
+            "old": "32",
+            "old_duration": "32",
+            "old_finish": "05-06-2026",
+            "old_start": "01-06-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building A / 2.",
+            "source_id": "1",
+            "start_date": "01-06-2026",
+            "trade": "2. Floor / Project / Building A / 2.",
+            "trade_code": "2. Floor / Project / Building A / 2."
+          },
+          {
+            "activity": "Daek",
+            "area": "Project / Building A / 2.",
+            "change_type": "Finish Date",
+            "duration": "48",
+            "finish_date": "16-06-2026",
+            "floor": "2. Floor",
+            "id": "2",
+            "location": {
+              "area": "Project / Building A / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 2.",
+            "new": "16-06-2026",
+            "new_duration": "48",
+            "new_finish": "16-06-2026",
+            "new_start": "10-06-2026",
+            "old": "15-06-2026",
+            "old_duration": "40",
+            "old_finish": "15-06-2026",
+            "old_start": "10-06-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building A / 2.",
+            "source_id": "2",
+            "start_date": "10-06-2026",
+            "trade": "2. Floor / Project / Building A / 2.",
+            "trade_code": "2. Floor / Project / Building A / 2."
+          },
+          {
+            "activity": "Daek",
+            "area": "Project / Building A / 2.",
+            "change_type": "Duration",
+            "duration": "48",
+            "finish_date": "16-06-2026",
+            "floor": "2. Floor",
+            "id": "2",
+            "location": {
+              "area": "Project / Building A / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 2.",
+            "new": "48",
+            "new_duration": "48",
+            "new_finish": "16-06-2026",
+            "new_start": "10-06-2026",
+            "old": "40",
+            "old_duration": "40",
+            "old_finish": "15-06-2026",
+            "old_start": "10-06-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building A / 2.",
+            "source_id": "2",
+            "start_date": "10-06-2026",
+            "trade": "2. Floor / Project / Building A / 2.",
+            "trade_code": "2. Floor / Project / Building A / 2."
+          },
+          {
+            "activity": "Daek",
+            "area": "Project / Building A / 2.",
+            "change_type": "Progress",
+            "duration": "48",
+            "finish_date": "16-06-2026",
+            "floor": "2. Floor",
+            "id": "2",
+            "location": {
+              "area": "Project / Building A / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 2.",
+            "new": "60.0",
+            "new_duration": "48",
+            "new_finish": "16-06-2026",
+            "new_start": "10-06-2026",
+            "old": "50.0",
+            "old_duration": "40",
+            "old_finish": "15-06-2026",
+            "old_start": "10-06-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building A / 2.",
+            "source_id": "2",
+            "start_date": "10-06-2026",
+            "trade": "2. Floor / Project / Building A / 2.",
+            "trade_code": "2. Floor / Project / Building A / 2."
+          },
+          {
+            "activity": "Daek",
+            "area": "Project / Building A / 2.",
+            "change_type": "Progress",
+            "duration": "40",
+            "finish_date": "25-06-2026",
+            "floor": "2. Floor",
+            "id": "3",
+            "location": {
+              "area": "Project / Building A / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 2.",
+            "new": "10.0",
+            "new_duration": "40",
+            "new_finish": "25-06-2026",
+            "new_start": "20-06-2026",
+            "old": "0.0",
+            "old_duration": "40",
+            "old_finish": "25-06-2026",
+            "old_start": "20-06-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building A / 2.",
+            "source_id": "3",
+            "start_date": "20-06-2026",
+            "trade": "2. Floor / Project / Building A / 2.",
+            "trade_code": "2. Floor / Project / Building A / 2."
+          },
+          {
+            "activity": "Daek",
+            "area": "Project / Building A / 2.",
+            "change_type": "Start Date",
+            "duration": "40",
+            "finish_date": "20-07-2026",
+            "floor": "2. Floor",
+            "id": "5",
+            "location": {
+              "area": "Project / Building A / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 2.",
+            "new": "15-07-2026",
+            "new_duration": "40",
+            "new_finish": "20-07-2026",
+            "new_start": "15-07-2026",
+            "old": "10-07-2026",
+            "old_duration": "40",
+            "old_finish": "15-07-2026",
+            "old_start": "10-07-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building A / 2.",
+            "source_id": "5",
+            "start_date": "15-07-2026",
+            "trade": "2. Floor / Project / Building A / 2.",
+            "trade_code": "2. Floor / Project / Building A / 2."
+          },
+          {
+            "activity": "Daek",
+            "area": "Project / Building A / 2.",
+            "change_type": "Finish Date",
+            "duration": "40",
+            "finish_date": "20-07-2026",
+            "floor": "2. Floor",
+            "id": "5",
+            "location": {
+              "area": "Project / Building A / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 2.",
+            "new": "20-07-2026",
+            "new_duration": "40",
+            "new_finish": "20-07-2026",
+            "new_start": "15-07-2026",
+            "old": "15-07-2026",
+            "old_duration": "40",
+            "old_finish": "15-07-2026",
+            "old_start": "10-07-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building A / 2.",
+            "source_id": "5",
+            "start_date": "15-07-2026",
+            "trade": "2. Floor / Project / Building A / 2.",
+            "trade_code": "2. Floor / Project / Building A / 2."
+          }
+        ],
+        "removed": []
+      },
+      "critical_path_activities": [],
+      "delay_drivers": [],
+      "executive_summary": {
+        "added_activities": 1,
+        "ahead_of_schedule_count": 1,
+        "behind_schedule_count": 0,
+        "confirmed_activities_count": 5,
+        "critical_count": 0,
+        "critical_path_count": 0,
+        "data_quality_warning": "",
+        "overall_progress_pct": 28.3,
+        "point_of_no_return_count": 0,
+        "project_health": "Green",
+        "recommended_action": "",
+        "requires_verification_count": 1,
+        "selected_activities": 6,
+        "trade_counts": {
+          "ALL": 6,
+          "ARK": 0,
+          "BYGH": 0,
+          "EL": 0,
+          "VENT": 0,
+          "VVS": 0
+        }
+      },
+      "filter_options": {
+        "areas": [
+          "Project / Building A / 2."
+        ],
+        "floors": [
+          "2. Floor"
+        ],
+        "phases": []
+      },
+      "not_started_overdue": [],
+      "point_of_no_return": [],
+      "progress_vs_expected": [
+        {
+          "activity": "Daek",
+          "actual_pct": 100.0,
+          "area": "Project / Building A / 2.",
+          "duration": "40",
+          "expected_pct": 0.0,
+          "finish_date": "06-06-2026",
+          "floor": "2. Floor",
+          "id": "1",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building A / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building A / 2.",
+          "source_id": "1",
+          "start_date": "01-06-2026",
+          "status": "ahead",
+          "trade": "2. Floor / Project / Building A / 2.",
+          "trade_code": "2. Floor / Project / Building A / 2.",
+          "variance_pct": 100.0
+        }
+      ],
+      "requires_verification_activities": [
+        {
+          "activity": "Daek",
+          "area": "Project / Building A / 2.",
+          "candidates": [],
+          "duration": "40",
+          "floor": "2. Floor",
+          "id": "6",
+          "level": "L5_NO_RELIABLE_MATCH",
+          "location": {
+            "area": "Project / Building A / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 2.",
+          "match_key": "daek|project / building a / 2.",
+          "method": "unmatched",
+          "phase": "",
+          "reason": "Nova found insufficient evidence to reliably match this activity between the two schedules. The activity has therefore been excluded from confirmed comparison results.",
+          "resource": "2. Floor / Project / Building A / 2.",
+          "source_id": "6",
+          "trade": "2. Floor / Project / Building A / 2.",
+          "trade_code": "2. Floor / Project / Building A / 2."
+        }
+      ],
+      "stage_mismatch": [
+        {
+          "activity": "Daek",
+          "actual_pct": 100.0,
+          "area": "Project / Building A / 2.",
+          "difference_pct": 100.0,
+          "duration": "40",
+          "expected_pct": 0.0,
+          "floor": "2. Floor",
+          "id": "1",
+          "location": {
+            "area": "Project / Building A / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building A / 2.",
+          "source_id": "1",
+          "status": "Critical Mismatch",
+          "trade": "2. Floor / Project / Building A / 2.",
+          "trade_code": "2. Floor / Project / Building A / 2."
+        }
+      ],
+      "summary_notes": {
+        "added_count": 1,
+        "current_data_date": "01 June 2026",
+        "delayed_activities": 0,
+        "finished_activities": 1,
+        "mean_expected_pct_all": 25.0,
+        "overall_progress_delta": -1.7,
+        "overall_progress_new_pct": 28.3,
+        "overall_progress_old_pct": 30.0,
+        "previous_data_date": "13 June 2026",
+        "removed_count": 0,
+        "reporting_period_new": "01-06-2026",
+        "reporting_period_old": "",
+        "requires_verification_count": 1,
+        "total_activities": 6
+      },
+      "versions": {
+        "analysis_engine": "nusf-compare-engine-v1.4",
+        "manual_corrections": "corrections:none",
+        "matching_algorithm": "nusf-matcher-v3.2",
+        "model": "deterministic-comparison-engine",
+        "parser": "nusf-pipeline-v2.1",
+        "prompt": "comparison-prompt-v1.0",
+        "schedule_revision": "01-06-2026"
+      }
+    },
+    "fixture_id": "03_duplicate_names_daek",
+    "new_pipeline_error": null,
+    "new_schedule": {
+      "activity_count": 6,
+      "issue_count": 4,
+      "issue_levels": [
+        "WARNING",
+        "WARNING",
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104",
+        "Rule Source Conflict (same_activity_multiple_ids)"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    },
+    "old_pipeline_error": null,
+    "old_schedule": {
+      "activity_count": 5,
+      "issue_count": 3,
+      "issue_levels": [
+        "WARNING",
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104",
+        "Rule Source Conflict (same_activity_multiple_ids)"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    }
+  },
+  "predictive": {
+    "fixture_id": "03_duplicate_names_daek",
+    "predictive_facts": {
+      "critical_count": 0,
+      "delayed_areas": [],
+      "delayed_count": 0,
+      "point_of_no_return_red_count": 0,
+      "point_of_no_return_yellow_count": 0
+    }
+  }
+}

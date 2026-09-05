@@ -1,0 +1,19 @@
+{
+  "brief_ref": "§13 (do not force matches -- the ventilation example, verbatim)",
+  "description": "Old schedule has 'Install ventilation ducts - Floor 2'. New schedule has three plausible-but-not-identical candidates: 'Install ventilation - Floor 2', 'Install ventilation ducts - Floor 3', 'Install main ventilation - Floor 2'. None shares an exact name+location key with the old activity. Brief §13 requires Nova not to guess which one it is.",
+  "kind": "pair",
+  "format": "CSV",
+  "reference_date": "01-06-2026",
+  "requires_azure": false,
+  "expected": {
+    "old_activity_count": 1,
+    "new_activity_count": 3,
+    "added": [
+      "Install ventilation - Floor 2",
+      "Install ventilation ducts - Floor 3",
+      "Install main ventilation - Floor 2"
+    ],
+    "removed": ["Install ventilation ducts - Floor 2"]
+  },
+  "notes": "Today's baseline already satisfies brief §13: with no exact name+location key match, the old activity lands in 'removed' and all three new candidates land in 'added' -- none is force-matched, and no wrong pairing is silently produced. What is missing (tracked for Phase 3, TL-3.1..TL-3.4): the engine has no 'ambiguous / requires verification' bucket -- these four activities are indistinguishable in the output from a genuine, unrelated add/remove. Phase 3 should turn this into an explicit ambiguous-match state without changing the fact that nothing gets force-matched."
+}

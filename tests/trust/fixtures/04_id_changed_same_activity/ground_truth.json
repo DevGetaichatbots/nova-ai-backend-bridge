@@ -1,0 +1,16 @@
+{
+  "brief_ref": "§11 (preserve both source IDs), §12 (Level 2 multi-field match)",
+  "description": "Two activities keep the exact same name/location/trade between revisions, but their 'Entydigt Id' value changes (A142->A198, B200->B245) -- simulating a schedule tool that regenerates its 'stable' ID on every export even though the underlying activity is unchanged. Both should still match as the same activity.",
+  "kind": "pair",
+  "format": "CSV",
+  "reference_date": "05-06-2026",
+  "requires_azure": false,
+  "expected": {
+    "old_activity_count": 2,
+    "new_activity_count": 2,
+    "added": [],
+    "removed": [],
+    "changed_count": 2
+  },
+  "notes": "Both activities match correctly (added==[] and removed==[]) because compare_nusf_chunks groups by name+location, not by source_id/stable_key -- ID churn alone never breaks a match today. The gap this fixture documents (brief §11, tracked as TL-2.5): the 'changes' entries and dashboard metadata carry only the NEW id (A198, B245); the OLD id (A142, B200) is nowhere in run_health()'s output, so a PM has no way to see that the ID changed at all, let alone that it changed safely."
+}

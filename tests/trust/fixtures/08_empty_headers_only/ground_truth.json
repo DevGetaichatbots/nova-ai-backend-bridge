@@ -1,0 +1,13 @@
+{
+  "brief_ref": "§35 (an empty/headers-only file), §28 (pre-flight source quality check)",
+  "description": "A CSV with only a header row and zero data rows -- the case where a PM uploads an empty export or a file that failed to render. Single-file fixture; there is no 'new' side.",
+  "kind": "single",
+  "format": "CSV",
+  "reference_date": "Unknown",
+  "requires_azure": false,
+  "expected": {
+    "old_pipeline_raises": true,
+    "old_pipeline_error_contains": "No data could be extracted"
+  },
+  "notes": "IngestionPipeline.run() raises PipelineError rather than returning a 0-activity schedule -- headers are recognized (all 9 columns map cleanly) but there are no rows to normalize, and the pipeline's own 'no chunks, no activities' guard treats that as an error rather than a silent empty result. This is the correct current behaviour for brief §28's pre-flight check (an empty file should not proceed to analysis pretending everything is fine) -- this fixture exists so a future change doesn't accidentally make an empty upload succeed silently."
+}

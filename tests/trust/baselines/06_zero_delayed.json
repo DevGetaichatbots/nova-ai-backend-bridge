@@ -1,0 +1,244 @@
+{
+  "fixture_id": "06_zero_delayed",
+  "health": {
+    "comparison": {
+      "action_recommendations": [],
+      "changed_activities": {
+        "added": [],
+        "changes": [
+          {
+            "activity": "VVS - Sanitary Rough-in",
+            "area": "Project / Building A / 2.",
+            "change_type": "Progress",
+            "duration": "72",
+            "finish_date": "10-06-2026",
+            "floor": "2. Floor",
+            "id": "Z-02",
+            "location": {
+              "area": "Project / Building A / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 2.",
+            "new": "50.0",
+            "new_duration": "72",
+            "new_finish": "10-06-2026",
+            "new_start": "01-06-2026",
+            "old": "40.0",
+            "old_duration": "72",
+            "old_finish": "10-06-2026",
+            "old_start": "01-06-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building A / 2.",
+            "source_id": "Z-02",
+            "start_date": "01-06-2026",
+            "trade": "VVS",
+            "trade_code": "VVS"
+          }
+        ],
+        "removed": []
+      },
+      "critical_path_activities": [],
+      "delay_drivers": [],
+      "executive_summary": {
+        "added_activities": 0,
+        "ahead_of_schedule_count": 2,
+        "behind_schedule_count": 0,
+        "confirmed_activities_count": 3,
+        "critical_count": 0,
+        "critical_path_count": 0,
+        "data_quality_warning": "",
+        "overall_progress_pct": 50.0,
+        "point_of_no_return_count": 0,
+        "project_health": "Green",
+        "recommended_action": "",
+        "requires_verification_count": 0,
+        "selected_activities": 3,
+        "trade_counts": {
+          "ALL": 3,
+          "ARK": 1,
+          "BYGH": 0,
+          "EL": 1,
+          "VENT": 0,
+          "VVS": 1
+        }
+      },
+      "filter_options": {
+        "areas": [
+          "Project / Building A / 1.",
+          "Project / Building A / 2."
+        ],
+        "floors": [
+          "1. Floor",
+          "2. Floor"
+        ],
+        "phases": []
+      },
+      "not_started_overdue": [],
+      "point_of_no_return": [],
+      "progress_vs_expected": [
+        {
+          "activity": "EL - Lighting First Fix",
+          "actual_pct": 100.0,
+          "area": "Project / Building A / 1.",
+          "duration": "32",
+          "expected_pct": 0.0,
+          "finish_date": "05-06-2026",
+          "floor": "1. Floor",
+          "id": "Z-01",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building A / 1.",
+            "floor": "1. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 1.",
+          "phase": "",
+          "resource": "1. Floor / Project / Building A / 1.",
+          "source_id": "Z-01",
+          "start_date": "01-06-2026",
+          "status": "ahead",
+          "trade": "EL",
+          "trade_code": "EL",
+          "variance_pct": 100.0
+        },
+        {
+          "activity": "VVS - Sanitary Rough-in",
+          "actual_pct": 50.0,
+          "area": "Project / Building A / 2.",
+          "duration": "72",
+          "expected_pct": 0.0,
+          "finish_date": "10-06-2026",
+          "floor": "2. Floor",
+          "id": "Z-02",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building A / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building A / 2.",
+          "source_id": "Z-02",
+          "start_date": "01-06-2026",
+          "status": "ahead",
+          "trade": "VVS",
+          "trade_code": "VVS",
+          "variance_pct": 50.0
+        }
+      ],
+      "requires_verification_activities": [],
+      "stage_mismatch": [
+        {
+          "activity": "EL - Lighting First Fix",
+          "actual_pct": 100.0,
+          "area": "Project / Building A / 1.",
+          "difference_pct": 100.0,
+          "duration": "32",
+          "expected_pct": 0.0,
+          "floor": "1. Floor",
+          "id": "Z-01",
+          "location": {
+            "area": "Project / Building A / 1.",
+            "floor": "1. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 1.",
+          "phase": "",
+          "resource": "1. Floor / Project / Building A / 1.",
+          "source_id": "Z-01",
+          "status": "Critical Mismatch",
+          "trade": "EL",
+          "trade_code": "EL"
+        },
+        {
+          "activity": "VVS - Sanitary Rough-in",
+          "actual_pct": 50.0,
+          "area": "Project / Building A / 2.",
+          "difference_pct": 50.0,
+          "duration": "72",
+          "expected_pct": 0.0,
+          "floor": "2. Floor",
+          "id": "Z-02",
+          "location": {
+            "area": "Project / Building A / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building A / 2.",
+          "source_id": "Z-02",
+          "status": "Critical Mismatch",
+          "trade": "VVS",
+          "trade_code": "VVS"
+        }
+      ],
+      "summary_notes": {
+        "added_count": 0,
+        "current_data_date": "01 June 2026",
+        "delayed_activities": 0,
+        "finished_activities": 1,
+        "mean_expected_pct_all": 46.7,
+        "overall_progress_delta": 3.3,
+        "overall_progress_new_pct": 50.0,
+        "overall_progress_old_pct": 46.7,
+        "previous_data_date": "05 June 2026",
+        "removed_count": 0,
+        "reporting_period_new": "01-06-2026",
+        "reporting_period_old": "",
+        "requires_verification_count": 0,
+        "total_activities": 3
+      },
+      "versions": {
+        "analysis_engine": "nusf-compare-engine-v1.4",
+        "manual_corrections": "corrections:none",
+        "matching_algorithm": "nusf-matcher-v3.2",
+        "model": "deterministic-comparison-engine",
+        "parser": "nusf-pipeline-v2.1",
+        "prompt": "comparison-prompt-v1.0",
+        "schedule_revision": "01-06-2026"
+      }
+    },
+    "fixture_id": "06_zero_delayed",
+    "new_pipeline_error": null,
+    "new_schedule": {
+      "activity_count": 3,
+      "issue_count": 2,
+      "issue_levels": [
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    },
+    "old_pipeline_error": null,
+    "old_schedule": {
+      "activity_count": 3,
+      "issue_count": 2,
+      "issue_levels": [
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    }
+  },
+  "predictive": {
+    "fixture_id": "06_zero_delayed",
+    "predictive_facts": {
+      "critical_count": 0,
+      "delayed_areas": [],
+      "delayed_count": 0,
+      "point_of_no_return_red_count": 0,
+      "point_of_no_return_yellow_count": 0
+    }
+  }
+}

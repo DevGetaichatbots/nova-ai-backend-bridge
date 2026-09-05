@@ -6,6 +6,17 @@ from datetime import datetime, date, timezone, timedelta
 import json
 import logging
 
+from src.trust.vocabulary import EvidenceClass, TrustState
+from src.trust.claims import build_field_claim_kinds, verify_narrative
+from src.trust.response_contract import (
+    AgentResponse,
+    GatePolicy,
+    detect_no_answer,
+    is_causal_question,
+    merge_inferences,
+    validate_agent_response,
+)
+
 logger = logging.getLogger(__name__)
 
 NOVA_INSIGHT_SCHEMA = {
@@ -375,6 +386,10 @@ NOVA_INSIGHT_SCHEMA = {
         }
     }
 }
+
+# Brief §41 versioning: prompt & engine dimensions (TL-9.3)
+PREDICTIVE_PROMPT_VERSION = "predictive-prompt-v2.1"
+PREDICTIVE_ENGINE_VERSION = "predictive-graph-engine-v1.0"
 
 PREDICTIVE_SYSTEM_PROMPT = """<context>
 You are Nova Insight — a senior construction schedule analyst and decision support system.
@@ -926,6 +941,813 @@ def _build_nusf_predictive_prompt() -> str:
 PREDICTIVE_SYSTEM_PROMPT_NUSF = _build_nusf_predictive_prompt()
 
 
+# ============================================================================
+# TL-5.4 — Narrative-only schema, prompt, and fact/narrative merge
+# ============================================================================
+# Brief §4/§17: "The LLM's job becomes: explain the truth, rather than
+# discover/invent the truth." `NOVA_INSIGHT_SCHEMA` above (and the prompt
+# feeding it) asks the model to detect delays, count activities, and invent
+# per-activity facts from a raw text dump — precisely the anti-pattern this
+# phase removes. `NOVA_NARRATIVE_SCHEMA` is deliberately smaller: every field
+# is either free-text narrative or judgement (`forcing_assessment` — brief
+# calls this "genuinely judgemental," TL-5.4 item 5) keyed by an `id` that
+# must already appear in the supplied structured context
+# (`src/trust/context.py`'s `build_predictive_context`). No field in this
+# schema can express a delay count, a date, or an activity's existence —
+# those come from `build_response_facts` and are merged in afterward by
+# `_merge_narrative_into_facts`, never asked of the model.
+#
+# `human_label` (the old schema's per-activity plain-language rename) is not
+# part of this schema at all. The old prompt asked the model to label every
+# activity in `delayed_activities`; but the new structured context shows the
+# model only a bounded handful (`actionable_activities` +
+# `biggest_risk_candidate`) — most delayed activities are never in its
+# context, so it cannot honestly label them. Rather than build a second,
+# narrower labelling pass for just the bounded subset (real scope, not done
+# here), `human_label` falls back to the real `task_name` everywhere
+# (`build_response_facts`'s `_delayed_activity_fact`) until a later task
+# deliberately reintroduces it — recorded as a known regression in
+# `changes/trust-layer/plan/DECISIONS.md`, not a silent drop.
+
+NOVA_NARRATIVE_SCHEMA = {
+    "name": "nova_narrative_report",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "required": [
+            "predictive_snapshot",
+            "predictive_biggest_risk",
+            "executive_actions",
+            "management_conclusion",
+            "root_cause_narratives",
+            "priority_actions",
+            "resource_assessment",
+            "forcing_assessment",
+            "summary_by_area_narratives",
+            "insight_narrative",
+        ],
+        "additionalProperties": False,
+        "properties": {
+            "predictive_snapshot": NOVA_INSIGHT_SCHEMA["schema"]["properties"]["predictive_snapshot"],
+            "predictive_biggest_risk": NOVA_INSIGHT_SCHEMA["schema"]["properties"]["predictive_biggest_risk"],
+            "executive_actions": NOVA_INSIGHT_SCHEMA["schema"]["properties"]["executive_actions"],
+            "management_conclusion": NOVA_INSIGHT_SCHEMA["schema"]["properties"]["management_conclusion"],
+            "root_cause_narratives": {
+                "type": "array",
+                "description": "Narrative text ONLY, one entry per root-cause `id` that appears in the supplied `biggest_risk_candidate` or `actionable_activities`. Do NOT invent an id that is not present there. Do NOT include an entry for any id not supplied.",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "why_it_matters", "downstream_impact", "consequence_if_unresolved"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "id": {"type": "string", "description": "Must exactly match an id from the supplied context. Never invent an id."},
+                        "why_it_matters": {"type": "string", "description": "1 sentence: what does this block or prevent"},
+                        "downstream_impact": {"type": "string", "description": "Which disciplines/areas are affected, or 'Isolated' if none — use the supplied `affected_count`, do not invent task names you were not given"},
+                        "consequence_if_unresolved": {"type": "string", "description": "1 sentence: what happens if this stays unresolved"},
+                    },
+                },
+            },
+            "priority_actions": NOVA_INSIGHT_SCHEMA["schema"]["properties"]["priority_actions"],
+            "resource_assessment": {
+                "type": "array",
+                "description": "One entry per id in the supplied `actionable_activities` with priority CRITICAL_NOW. Do NOT invent an id.",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "resource_type", "assessment"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "id": {"type": "string", "description": "Must exactly match an id from the supplied `actionable_activities`. Never invent an id."},
+                        "resource_type": {"type": "string", "enum": ["coordination_bottleneck", "design_dependency", "bygherre_escalation", "production_manpower", "management_attention", "procurement_dependency"]},
+                        "assessment": {"type": "string", "description": "1-2 sentences: whether adding labour helps, whether management attention is needed, whether prerequisites must be resolved first"},
+                    },
+                },
+            },
+            "forcing_assessment": {
+                "type": "array",
+                "description": "One entry per id in the supplied `actionable_activities` (CRITICAL_NOW and IMPORTANT_NEXT only — skip MONITOR, which never appears in `actionable_activities` anyway). Do NOT invent an id.",
+                "items": {
+                    "type": "object",
+                    "required": [
+                        "id", "is_forceable", "constraint_type", "reason", "risk_if_forced",
+                        "recommendation", "coordination_cost", "parallelizability",
+                        "max_speedup_factor", "optimal_team_size", "point_of_no_return",
+                    ],
+                    "additionalProperties": False,
+                    "properties": {
+                        "id": {"type": "string", "description": "Must exactly match an id from the supplied `actionable_activities`. Never invent an id."},
+                        **{
+                            k: v
+                            for k, v in NOVA_INSIGHT_SCHEMA["schema"]["properties"]["forcing_assessment"]["items"]["properties"].items()
+                            if k not in ("id", "task_name", "human_label")
+                        },
+                    },
+                },
+            },
+            "summary_by_area_narratives": {
+                "type": "array",
+                "description": "One entry per area named in the supplied `clusters`. `area` must exactly match a `clusters[].location` value from the supplied context.",
+                "items": {
+                    "type": "object",
+                    "required": ["area", "summary"],
+                    "additionalProperties": False,
+                    "properties": {
+                        "area": {"type": "string", "description": "Must exactly match a `clusters[].location` value from the supplied context."},
+                        "summary": {"type": "string", "description": "1-sentence situation summary for this area including forcing viability note"},
+                    },
+                },
+            },
+            "insight_narrative": {
+                "type": "object",
+                "required": ["primary_risk", "critical_findings", "consequences_if_no_action"],
+                "additionalProperties": False,
+                "properties": {
+                    "primary_risk": {"type": "string", "description": "Short description of the primary risk driver, grounded in the supplied `biggest_risk_candidate`/`clusters`"},
+                    "critical_findings": NOVA_INSIGHT_SCHEMA["schema"]["properties"]["insight_data"]["properties"]["critical_findings"],
+                    "consequences_if_no_action": NOVA_INSIGHT_SCHEMA["schema"]["properties"]["insight_data"]["properties"]["consequences_if_no_action"],
+                },
+            },
+        },
+    },
+}
+
+
+PREDICTIVE_NARRATIVE_SYSTEM_PROMPT = """<context>
+You are Nova Insight — a senior construction schedule analyst and decision support system.
+
+You are given a STRUCTURED, VERIFIED set of facts about a construction schedule. These facts were
+computed deterministically in code from the schedule's own data — they are not your output to produce,
+and they are not open to revision. Your job is DIFFERENT from before: you do not detect delays, you do
+not count activities, you do not decide which activities exist or which are root causes. All of that is
+already decided and supplied to you. Your job is to EXPLAIN, PRIORITISE, and ADVISE, grounded strictly
+in what you were given.
+
+## THE STRUCTURED CONTEXT YOU RECEIVE
+
+- `reference_date`: the date all overdue calculations are measured against.
+- `project_status`: aggregate counts (`delayed_activities`, `critical_delayed`, `important_delayed`,
+  `monitor_delayed`, `root_cause_count`, `unverified_delayed_count`) and a `confidence` word
+  ("high"/"medium"). These numbers are FINAL — never restate them differently, never recompute them.
+- `clusters[]`: confirmed delayed activities grouped by `location` x `trade`, each with `delayed`,
+  `critical` counts and its own `confidence`.
+- `biggest_risk_candidate`: the single highest-impact confirmed root cause (`id`, `name`, `days_overdue`,
+  `affected_count`, `location`, `trade`, `trust_state`), or `null` if there is no confirmed root cause to
+  name.
+- `actionable_activities[]`: the bounded set of confirmed root-cause / CRITICAL_NOW / IMPORTANT_NEXT
+  activities you may write about individually (`id`, `name`, `days_overdue`, `priority`, `is_root_cause`,
+  `blocked_by_id`, `affected_count`, `location`, `trade`), plus `actionable_activities_omitted_count` —
+  how many more exist beyond this bounded list (never silently ignore this number; if it is greater than
+  zero, your narrative must not imply `actionable_activities` is the complete list of problems).
+
+## THE ABSOLUTE RULE
+
+Every activity `id` you write ANYWHERE in your response (`root_cause_narratives[].id`,
+`resource_assessment[].id`, `forcing_assessment[].id`, `executive_actions[].related_task_ids[]`) MUST be
+copied EXACTLY from an `id` that appears in `biggest_risk_candidate` or `actionable_activities` above.
+
+NEVER invent an id. NEVER guess an id. NEVER reference an activity you were not given an id for — if you
+need to talk about activities beyond what you were shown, refer to them only in aggregate terms using the
+supplied counts (e.g. "12 further activities in Area 2 are affected" — a number from `project_status` or
+`clusters`, never a name or id you were not given).
+
+If `biggest_risk_candidate` is `null`, there is no confirmed root cause to name — do not invent one; write
+`predictive_biggest_risk` to state plainly that no single dominant root cause could be confirmed yet and
+what would need to happen to identify one (validation, more data), naming zero ids.
+
+</context>
+
+<task>
+## FORCING ASSESSMENT (Module F) — for every entry in `actionable_activities` (CRITICAL_NOW / IMPORTANT_NEXT
+only — the supplied list already excludes MONITOR), evaluate whether the activity can be accelerated by
+adding resources, and what happens if the PM tries anyway. This is the one part of the analysis that stays
+genuinely judgemental — there is no deterministic answer to "should the PM force this."
+
+### FORCING ASSESSMENT RULES (RULE-BASED LOGIC):
+
+RULE 1 — COORDINATION / DESIGN / BYGHERRE CONSTRAINTS: is_forceable="not_recommended", the constraint is a
+missing decision or input that manpower cannot resolve, coordination_cost="high", parallelizability="low",
+max_speedup_factor="1.0x", optimal_team_size="N/A".
+
+RULE 2 — PROCUREMENT: is_forceable="not_recommended", constraint_type="procurement_waiting", manpower has
+no effect until materials arrive, coordination_cost="low", parallelizability="low", max_speedup_factor="1.0x",
+optimal_team_size="N/A".
+
+RULE 3 — PRODUCTION with many downstream dependencies (`affected_count` > 3): is_forceable="limited",
+constraint_type="cascading_dependencies", errors will cascade through multiple trades,
+max_speedup_factor="1.5x-2.0x", optimal_team_size="2-4 people".
+
+RULE 4 — PRODUCTION with few/no downstream dependencies (`affected_count` <= 3): is_forceable="possible",
+constraint_type="execution_capacity", diminishing returns apply but acceleration is viable,
+max_speedup_factor="2.0x-3.0x" for high parallelizability / "1.5x-2.0x" for medium.
+
+RULE 5 — MILESTONES (zero-duration coordination/decision gates): is_forceable="not_recommended",
+constraint_type="milestone_gate", max_speedup_factor="1.0x", optimal_team_size="N/A".
+
+TRADE-SPECIFIC COORDINATION COST GUIDANCE (use `trade` from the supplied activity):
+Revit/BIM modeling: high/low. Electrical: low/high. HVAC/VVS: medium/medium. Carpentry/finishing: low/high.
+Painting/surface: low/high. Concrete/structural: medium/medium. Design/engineering: high/low.
+Cross-discipline coordination: high/low.
+
+POINT OF NO RETURN: "Already past — resolve constraint first" if severely overdue and not_recommended;
+"Approaching — act within X days" if limited and getting close; "Still recoverable — forcing window open"
+if possible and days_overdue is manageable; state the prerequisite for non-forceable tasks.
+
+## EXECUTIVE ACTIONS — EXACTLY 3, ranked by urgency, synthesised from `biggest_risk_candidate`,
+`actionable_activities`, and your own forcing assessment. Each is a direct instruction: WHO, WHAT, WHEN
+(use the real day names/dates given in the user message), and whether manpower helps or is USELESS.
+Any `related_task_ids` you cite must come from `actionable_activities`/`biggest_risk_candidate`.
+
+## PREDICTIVE SNAPSHOT — synthesise `what_will_happen` / `estimated_delay_impact` from
+`project_status.delayed_activities`/`critical_delayed` and the worst `days_overdue` you were given in
+`actionable_activities`/`biggest_risk_candidate`. When `project_status.delayed_activities` is 0, do not
+fabricate a delay window — describe structural risk only, per the field's own description below.
+`confidence_level` should reflect `project_status.confidence` (map "high"→HIGH, "medium"→MEDIUM; if
+`project_status.confidence` is null, use LOW). `main_delay_drivers` must reference only the supplied
+`clusters`/`actionable_activities` — never invent a category with no supplied evidence.
+
+## SUMMARY BY AREA — one narrative sentence per `clusters[].location`, matching the `area` field exactly to
+that location string, referencing that cluster's own `delayed`/`critical`/`confidence`.
+
+## LANGUAGE
+
+`management_conclusion`, narrative text fields, and enum fields stay as documented in the language
+instructions appended below. Enum values themselves (task_type, priority, is_forceable, constraint_type,
+coordination_cost, parallelizability, confidence_level, resource_type) always stay in English — they are
+machine-readable.
+
+## HEDGING — BRIEF §20
+
+Brief §20: *"Never make a prediction visually indistinguishable from an observed fact."* The phrasing
+matters to construction professionals. Apply these rules:
+
+- **Forecasts and inferences** (`predictive_snapshot.what_will_happen`, `estimated_delay_impact`,
+  `predictive_biggest_risk.will_block`, `main_delay_drivers`, etc.) MUST use hedged language:
+  *"shows a pattern of"*, *"indicates"*, *"is consistent with"*, *"is associated with"*, *"the
+  largest concentration of current delay is within"* — never *will be*, *caused by*, *due to*,
+  *definitely*, *always*, *never*.
+- **Verified facts and deterministic counts** (`delayed_activities[].id`, `start_date`, `days_overdue`,
+  `insight_data.delayed_count`, `schedule_overview.*`) MUST speak directly — no hedging on
+  numbers that come straight from the source. *"Task ID 41 is delayed by 47 days"* is correct;
+  hedging it to *"Task ID 41 appears to be delayed"* is over-cautious and erodes trust in the
+  labels themselves.
+- **Causal claims** (`A is caused by B`, *X led to Y*) are NEVER supported by schedule data —
+  the schedule records *what* and *when*, never *why*. Even if your pattern-matching suggests a
+  cause, phrase it associatively: *"the largest concentration of current delay is within electrical
+  activities"*, not *"electrical work caused the delay"*.
+
+A deterministic post-generation check (`TL-6.6`, brief §34 enforcement architecture) will rewrite
+overclaiming phrasing on INFERENCE-classified text to its hedged form before the response reaches the
+renderer. The prompt is the last layer; the check is the gate. Both must be present. If your first
+draft uses hedged phrasing throughout, the check will pass cleanly with zero rewrites.
+
+## DANISH (when `language="da"`)
+
+The same hedging rules apply, with Danish equivalents — *forårsaget af* → *forbundet med*;
+*vil blive forsinket* → *viser et mønster af forsinkelse*; *helt sikkert* → *sandsynligvis*; etc.
+Kemp is Danish-only (brief §46); the Danish hedging rewrite must be just as strict as the English.
+
+Return complete JSON matching the strict schema.
+</task>"""
+
+
+PREDICTIVE_NARRATIVE_LANGUAGE_INSTRUCTIONS = {
+    "da": """
+IMPORTANT: All narrative text must be in Danish (Dansk):
+- executive_actions[].action/.responsible/.deadline/.manpower_note: Danish, with REAL day names and dates
+- management_conclusion: Danish
+- priority_actions[].action: Danish
+- resource_assessment[].assessment: Danish
+- forcing_assessment[].reason/.risk_if_forced/.recommendation/.point_of_no_return: Danish
+- summary_by_area_narratives[].summary: Danish
+- root_cause_narratives[].why_it_matters/.downstream_impact/.consequence_if_unresolved: Danish
+- predictive_snapshot.what_will_happen: Danish — start with "Hvis der ikke handles, ..."
+- predictive_snapshot.confidence_basis / .main_delay_drivers[]: Danish
+- predictive_biggest_risk.risk_title/.will_block/.prevent_action_now: Danish
+- insight_narrative.primary_risk/.critical_findings[]/.consequences_if_no_action[]: Danish
+- Enum values stay in English.
+""",
+    "en": """
+Respond with all narrative text in English. Enum values stay as defined in the schema.
+""",
+}
+
+
+# ============================================================================
+# TL-5.6 — FORECAST/FACT separation: per-field `EvidenceClass` annotations
+# ============================================================================
+# Brief §31, §45 — observed facts and forward-looking predictions must never
+# look identical to a reader. Every leaf in the response carries an
+# `EvidenceClass` (SOURCE_DATA / NOVA_CALCULATION / NOVA_INSIGHT /
+# NOVA_FORECAST), exposed as a sibling `_classification` map at the top
+# level of the merged response. The map shape is:
+#
+#     {
+#       "<section_name>": {                  # e.g. "delayed_activities"
+#         "<field_name>": "<class>",         # applied to every item
+#         ...
+#       },
+#       "<section_name>": "<class>",         # for top-level scalars
+#       ...
+#     }
+#
+# This is the *minimum* representation that satisfies the brief's "every
+# schema element carries an EvidenceClass" AC: a flat per-leaf map keys
+# off the response's own shape, so `tests/trust/test_forecast_classification.py`
+# can walk the response and assert every (section, field) is covered —
+# catching drift between the schema and the classification map.
+#
+# Classification rules (rationale per class, brief §45):
+# - SOURCE_DATA — values lifted verbatim from the schedule. Activity ids,
+#   names, dates, durations, progress, area/discipline. Trust discipline
+#   here is the source itself (Phase 1); the response does not transform.
+# - NOVA_CALCULATION — deterministic derivations in Python (`days_overdue`,
+#   `priority`, `task_type`, `is_root_cause`, all `insight_data` counts).
+#   The model is never asked to produce these (brief §4, §15).
+# - NOVA_INSIGHT — the model's interpretive judgement on observed data
+#   (forcing viability, root-cause `why_it_matters`, resource assessment,
+#   the `summary` sentence per area, action `responsible`/`manpower_note`).
+#   Grounded in the data, not forward-looking.
+# - NOVA_FORECAST — forward-looking predictions. `predictive_snapshot.*`,
+#   `predictive_biggest_risk.will_block` / `.prevent_action_now`,
+#   `executive_actions[].action`, `priority_actions[].action`. Brief §31
+#   holds these to a higher bar than observations.
+#
+# NOTE — the "Do not" rule: do not classify the zero-delay structural-risk
+# narrative as a forecast about delay. It is an inference about structure
+# (brief §20) — the *field* `predictive_snapshot.what_will_happen` is
+# classified NOVA_FORECAST because that is what it is intended to hold;
+# when `delayed_count == 0` the *value* is structurally an inference, and
+# `_build_classification` would re-classify it on inspection of the
+# `insight_data.delayed_count` if asked. We deliberately do not encode
+# that re-classification here — it is the renderer's job (TL-7.4) to
+# treat "If no action is taken..." prose differently when no delays
+# exist. The classification is on the field, not on its current value.
+#
+# AC3 ("no element defaults to SOURCE_DATA implicitly") is enforced by
+# the test's `test_explicit_classifications_only`: every entry in this
+# map is named; there is no fallback. A field that is *not* in this map
+# will trip `_build_classification`'s validation error, surfacing the
+# gap as a test failure rather than silently defaulting to SOURCE_DATA.
+FIELD_EVIDENCE_CLASSIFICATIONS: dict = {
+    # Top-level scalars
+    "management_conclusion": EvidenceClass.NOVA_INSIGHT,
+    # predictive_snapshot — every field is a forecast or insight (brief §31)
+    "predictive_snapshot": {
+        "what_will_happen": EvidenceClass.NOVA_FORECAST,
+        "estimated_delay_impact": EvidenceClass.NOVA_FORECAST,
+        "confidence_level": EvidenceClass.NOVA_CALCULATION,  # HIGH/MEDIUM/LOW is rule-based
+        "confidence_basis": EvidenceClass.NOVA_INSIGHT,      # model's reasoning about confidence
+        "main_delay_drivers": EvidenceClass.NOVA_INSIGHT,    # model categorisation
+    },
+    # predictive_biggest_risk — title is framing, will_block/prevent are forecasts
+    "predictive_biggest_risk": {
+        "risk_title": EvidenceClass.NOVA_INSIGHT,
+        "will_block": EvidenceClass.NOVA_FORECAST,
+        "prevent_action_now": EvidenceClass.NOVA_FORECAST,
+    },
+    # executive_actions — TOP 3 imperative moves; rank/responsible/manpower are insight, action is forecast
+    "executive_actions": {
+        "rank": EvidenceClass.NOVA_INSIGHT,
+        "action": EvidenceClass.NOVA_FORECAST,
+        "responsible": EvidenceClass.NOVA_INSIGHT,
+        "deadline": EvidenceClass.NOVA_CALCULATION,  # derived from today's date
+        "related_task_ids": EvidenceClass.SOURCE_DATA,
+        "manpower_helps": EvidenceClass.NOVA_INSIGHT,
+        "manpower_note": EvidenceClass.NOVA_INSIGHT,
+    },
+    # schedule_overview — counts are calculated, names/dates are source
+    "schedule_overview": {
+        "schedule_name": EvidenceClass.SOURCE_DATA,
+        "reference_date": EvidenceClass.SOURCE_DATA,
+        "total_activities": EvidenceClass.NOVA_CALCULATION,
+        "delayed_count": EvidenceClass.NOVA_CALCULATION,
+        "areas_covered": EvidenceClass.SOURCE_DATA,
+        "format_detected": EvidenceClass.NOVA_CALCULATION,
+    },
+    # delayed_activities — per-item, deterministic counts/types, source for ids/dates
+    "delayed_activities": {
+        "id": EvidenceClass.SOURCE_DATA,
+        "task_name": EvidenceClass.SOURCE_DATA,
+        "human_label": EvidenceClass.NOVA_INSIGHT,
+        "start_date": EvidenceClass.SOURCE_DATA,
+        "end_date": EvidenceClass.SOURCE_DATA,
+        "duration": EvidenceClass.SOURCE_DATA,
+        "progress": EvidenceClass.SOURCE_DATA,
+        "days_overdue": EvidenceClass.NOVA_CALCULATION,
+        "task_type": EvidenceClass.NOVA_CALCULATION,
+        "priority": EvidenceClass.NOVA_CALCULATION,
+        "is_root_cause": EvidenceClass.NOVA_CALCULATION,
+        "blocked_by_id": EvidenceClass.SOURCE_DATA,
+        "area": EvidenceClass.SOURCE_DATA,
+    },
+    # root_cause_analysis — source for ids, calculation for days/problem_type,
+    # insight for the model's narrative ("why_it_matters" etc.)
+    "root_cause_analysis": {
+        "id": EvidenceClass.SOURCE_DATA,
+        "task_name": EvidenceClass.SOURCE_DATA,
+        "human_label": EvidenceClass.NOVA_INSIGHT,
+        "days_overdue": EvidenceClass.NOVA_CALCULATION,
+        "problem_type": EvidenceClass.NOVA_CALCULATION,
+        "why_it_matters": EvidenceClass.NOVA_INSIGHT,
+        "downstream_impact": EvidenceClass.NOVA_INSIGHT,
+        "consequence_if_unresolved": EvidenceClass.NOVA_INSIGHT,
+        "affected_task_ids": EvidenceClass.SOURCE_DATA,
+    },
+    # downstream_consequences — sourced from the dependency graph
+    "downstream_consequences": {
+        "id": EvidenceClass.SOURCE_DATA,
+        "task_name": EvidenceClass.SOURCE_DATA,
+        "human_label": EvidenceClass.NOVA_INSIGHT,
+        "blocked_by_id": EvidenceClass.SOURCE_DATA,
+    },
+    # priority_actions — model's prioritised list of actions to take
+    "priority_actions": {
+        "step": EvidenceClass.NOVA_CALCULATION,
+        "action": EvidenceClass.NOVA_FORECAST,
+        "action_type": EvidenceClass.NOVA_CALCULATION,
+    },
+    # resource_assessment — model's interpretive judgement on resource bottlenecks
+    "resource_assessment": {
+        "id": EvidenceClass.SOURCE_DATA,
+        "task_name": EvidenceClass.SOURCE_DATA,
+        "human_label": EvidenceClass.NOVA_INSIGHT,
+        "resource_type": EvidenceClass.NOVA_INSIGHT,
+        "assessment": EvidenceClass.NOVA_INSIGHT,
+    },
+    # forcing_assessment — every field is a model judgement call (brief §4 keeps this with the model)
+    "forcing_assessment": {
+        "id": EvidenceClass.SOURCE_DATA,
+        "task_name": EvidenceClass.SOURCE_DATA,
+        "human_label": EvidenceClass.NOVA_INSIGHT,
+        "is_forceable": EvidenceClass.NOVA_INSIGHT,
+        "constraint_type": EvidenceClass.NOVA_INSIGHT,
+        "reason": EvidenceClass.NOVA_INSIGHT,
+        "risk_if_forced": EvidenceClass.NOVA_INSIGHT,
+        "recommendation": EvidenceClass.NOVA_INSIGHT,
+        "coordination_cost": EvidenceClass.NOVA_INSIGHT,
+        "parallelizability": EvidenceClass.NOVA_INSIGHT,
+        "max_speedup_factor": EvidenceClass.NOVA_INSIGHT,
+        "optimal_team_size": EvidenceClass.NOVA_INSIGHT,
+        "point_of_no_return": EvidenceClass.NOVA_INSIGHT,
+    },
+    # summary_by_area — counts are computed; the per-area `summary` is model prose
+    "summary_by_area": {
+        "area": EvidenceClass.SOURCE_DATA,
+        "delayed_count": EvidenceClass.NOVA_CALCULATION,
+        "critical_count": EvidenceClass.NOVA_CALCULATION,
+        "important_count": EvidenceClass.NOVA_CALCULATION,
+        "monitor_count": EvidenceClass.NOVA_CALCULATION,
+        "summary": EvidenceClass.NOVA_INSIGHT,
+    },
+    # insight_data — almost entirely NOVA_CALCULATION (counts); narrative fields are insight
+    "insight_data": {
+        "total_activities": EvidenceClass.NOVA_CALCULATION,
+        "delayed_count": EvidenceClass.NOVA_CALCULATION,
+        "critical_count": EvidenceClass.NOVA_CALCULATION,
+        "important_count": EvidenceClass.NOVA_CALCULATION,
+        "monitor_count": EvidenceClass.NOVA_CALCULATION,
+        "root_cause_count": EvidenceClass.NOVA_CALCULATION,
+        "reference_date": EvidenceClass.SOURCE_DATA,
+        "most_overdue_days": EvidenceClass.NOVA_CALCULATION,
+        "areas_affected": EvidenceClass.NOVA_CALCULATION,
+        "format_detected": EvidenceClass.NOVA_CALCULATION,
+        "schedule_name": EvidenceClass.SOURCE_DATA,
+        "primary_risk": EvidenceClass.NOVA_INSIGHT,
+        "forceable_count": EvidenceClass.NOVA_CALCULATION,
+        "not_forceable_count": EvidenceClass.NOVA_CALCULATION,
+        "project_status": EvidenceClass.NOVA_CALCULATION,
+        "risk_level": EvidenceClass.NOVA_CALCULATION,
+        "unverified_delayed_count": EvidenceClass.NOVA_CALCULATION,  # built by build_response_facts
+        "critical_findings": EvidenceClass.NOVA_INSIGHT,
+        "consequences_if_no_action": EvidenceClass.NOVA_INSIGHT,
+    },
+}
+
+
+def _build_classification(response: dict) -> dict:
+    """TL-5.6: emit a per-(section, field) `EvidenceClass` map for `response`.
+
+    Walks `response` and produces a nested dict matching the shape in
+    `FIELD_EVIDENCE_CLASSIFICATIONS` — every (section, field) present in
+    `response` is looked up in the master map and emitted with its class.
+
+    AC3 (no implicit `SOURCE_DATA` default): if a (section, field) is
+    present in `response` but missing from `FIELD_EVIDENCE_CLASSIFICATIONS`,
+    this function raises `ValueError` rather than silently defaulting. The
+    test pins the same property statically. Drift surfaces as a failure,
+    not as a quiet re-classification.
+    """
+    classification: dict = {}
+    for section_name, section_value in response.items():
+        if section_name.startswith("_"):
+            # Skip metadata keys (e.g., `_classification` itself if we ever re-run).
+            continue
+        classification_for_section = FIELD_EVIDENCE_CLASSIFICATIONS.get(section_name)
+        if classification_for_section is None:
+            raise ValueError(
+                f"TL-5.6: section {section_name!r} is present in the response "
+                f"but has no classification in FIELD_EVIDENCE_CLASSIFICATIONS. "
+                f"Add an explicit entry — do not let it default."
+            )
+        if isinstance(classification_for_section, EvidenceClass):
+            # Top-level scalar (e.g., `management_conclusion`).
+            classification[section_name] = classification_for_section.value
+            continue
+        # Section is an object or an array of objects. Walk items.
+        if isinstance(section_value, list):
+            if not section_value:
+                # Empty array — nothing to validate per item, but record
+                # the field map so consumers know what classification WOULD
+                # apply if items were present.
+                classification[section_name] = {
+                    field: cls.value for field, cls in classification_for_section.items()
+                }
+                continue
+            first_item = section_value[0]
+            if not isinstance(first_item, dict):
+                raise ValueError(
+                    f"TL-5.6: section {section_name!r} items must be dicts, "
+                    f"got {type(first_item).__name__}"
+                )
+            classification[section_name] = {}
+            for field_name in first_item.keys():
+                if field_name not in classification_for_section:
+                    raise ValueError(
+                        f"TL-5.6: field {section_name!r}.{field_name!r} is present "
+                        f"in the response but has no classification. Add an explicit entry."
+                    )
+                classification[section_name][field_name] = (
+                    classification_for_section[field_name].value
+                )
+        elif isinstance(section_value, dict):
+            classification[section_name] = {}
+            for field_name in section_value.keys():
+                if field_name not in classification_for_section:
+                    raise ValueError(
+                        f"TL-5.6: field {section_name!r}.{field_name!r} is present "
+                        f"in the response but has no classification. Add an explicit entry."
+                    )
+                classification[section_name][field_name] = (
+                    classification_for_section[field_name].value
+                )
+        else:
+            # Section is a top-level scalar (e.g., `management_conclusion`).
+            classification[section_name] = classification_for_section.value
+    return classification
+
+
+# ============================================================================
+# TL-6.1 — wrap the merged response in the brief §33 contract
+# ============================================================================
+
+
+def _build_agent_response(
+    parsed_json: dict,
+    user_query: str = "",
+    language: str = "en",
+) -> AgentResponse:
+    """TL-6.1 + TL-6.3 + TL-6.5: wrap a fully-merged predictive response
+    (raw or NUSF path, both converge on the same flat shape) in
+    `AgentResponse` before it is handed to `validate_agent_response`.
+
+    - `supporting_facts` / `source_references` are drawn from Phase 5's
+      deterministic facts (`insight_data`, `delayed_activities`) — never
+      from narrative prose, so they cannot themselves be an unverified
+      claim.
+    - `inferences` are the response's own headline forward-looking /
+      interpretive statements. These sections are already known to be
+      `NOVA_INSIGHT`/`NOVA_FORECAST` (TL-5.6's `_classification`) rather
+      than fact; this is a coarse, response-level echo of that signal, not
+      the per-claim `ClaimKind` tagging `TL-6.4` will add.
+    - `answer` / `unverified_claims` now come from `verify_narrative`
+      (`TL-6.3`): every claim in `management_conclusion` is extracted
+      (`TL-6.2`) and checked against `parsed_json` itself — the same dict
+      is both the narrative source and the fact store, which is exactly
+      right, since `insight_data`/`delayed_activities`/`summary_by_area`
+      are deterministic (Phase 5) regardless of which agent produced the
+      narrative around them. `CONTRADICTED` claims are removed from
+      `answer` outright (never rewritten — this task's Do-not rule);
+      `UNVERIFIABLE` claims (causal claims always land here, brief §20)
+      populate `unverified_claims` for `TL-6.1`'s gate to qualify.
+
+    TL-6.5: when `user_query` is supplied AND is a causal/unanswerable
+    question (matches `is_causal_question`), AND the conclusion contains
+    unverifiable claims, the response is upgraded to a structured
+    no-answer (brief §18) instead of a normal answer with
+    `unverified_claims`. Brief §18 is explicit: this is a feature, not
+    a failure — the gate renders the three-part reassuring text and the
+    app shows it as a normal result, not an error banner.
+    """
+    insight_data = parsed_json.get("insight_data", {}) or {}
+    delayed_activities = parsed_json.get("delayed_activities", []) or []
+    snapshot = parsed_json.get("predictive_snapshot", {}) or {}
+    biggest_risk = parsed_json.get("predictive_biggest_risk", {}) or {}
+
+    supporting_facts = []
+    if "delayed_count" in insight_data:
+        supporting_facts.append(f"{insight_data['delayed_count']} confirmed delayed activities")
+    if insight_data.get("critical_count"):
+        supporting_facts.append(f"{insight_data['critical_count']} classified CRITICAL_NOW")
+    if insight_data.get("root_cause_count") is not None:
+        supporting_facts.append(f"{insight_data['root_cause_count']} confirmed root cause(s)")
+
+    source_references = [a["id"] for a in delayed_activities if a.get("id")]
+
+    inferences = merge_inferences(
+        [snapshot.get("what_will_happen", "")],
+        [biggest_risk.get("will_block", "")],
+        [parsed_json.get("management_conclusion", "")],
+    )
+
+    verification = verify_narrative(parsed_json.get("management_conclusion", ""), parsed_json)
+
+    # TL-6.4 (brief §19): per-(section, field) `ClaimKind` map for everything
+    # in the response that does NOT go through extraction — the LLM-attributed
+    # fields (`forcing_assessment[]`, `predictive_biggest_risk.will_block`,
+    # per-area `summary` sentences, etc.). Per-claim `kind` for extracted
+    # narrative lives on each `VerifiedClaim` (TL-6.3) and is computed by
+    # `_classify_claim`; this map is the *parallel* field-level echo that
+    # travels in the payload for TL-7.3 to render (brief §31: "the
+    # classification travels in the payload"). Same map for both NUSF and
+    # raw paths — both converge on the same flat response shape.
+    field_claim_kinds = build_field_claim_kinds(parsed_json)
+    parsed_json["_claim_kinds"] = field_claim_kinds
+
+    if not verification.decomposable:
+        # The narrative could not be safely analyzed at all — the most
+        # conservative state, not `REVIEW` (brief's "unknown = unverified,
+        # never assumed fine").
+        confidence_state = TrustState.UNVERIFIED
+    elif verification.contradicted or verification.unverifiable:
+        # Either a false claim was caught and removed, or something
+        # remains that could not be checked — both are the honest middle
+        # state, never `VERIFIED`.
+        confidence_state = TrustState.REVIEW
+    elif verification.verified:
+        # Every claim found was checked and matched the fact store.
+        confidence_state = TrustState.VERIFIED
+    else:
+        # No claims were found at all — nothing to point to as verified,
+        # so this stays short of `VERIFIED` rather than defaulting to it.
+        confidence_state = TrustState.REVIEW
+
+    # TL-6.5: structured no-answer (brief §18). Detect AFTER the
+    # supporting facts and unverifiable claims are computed — the
+    # detector needs both. Both the default `user_query=""` and the
+    # standard predictive query ("Execute full two-phase analysis...")
+    # skip no-answer (the trigger list is causal-question-specific);
+    # the path only fires when a future caller passes a user query that
+    # actually asks for causality.
+    no_answer = detect_no_answer(
+        question=user_query,
+        facts=supporting_facts,
+        unverifiable_claims=verification.unverified_claim_texts,
+        language=language,
+    )
+
+    return AgentResponse(
+        answer=verification.cleaned_text,
+        supporting_facts=supporting_facts,
+        source_references=source_references,
+        confidence_state=confidence_state,
+        inferences=inferences,
+        unverified_claims=verification.unverified_claim_texts,
+        no_answer=no_answer,
+    )
+
+
+def _merge_narrative_into_facts(
+    response_facts: dict,
+    structured_context: dict,
+    narrative: dict,
+) -> dict:
+    """TL-5.4: combine `build_response_facts`'s deterministic FACTS with the
+    model's narrative-only response into the flat shape
+    `NOVA_INSIGHT_SCHEMA` used to produce, so `format_predictive_as_html` /
+    the dashboard renderers need no changes.
+
+    Pure function — no LLM call, no I/O — so it is fully unit-testable
+    against a hand-built fake `narrative` dict, including the adversarial
+    case where the model names an id it was never given. Any id in
+    `narrative` that does not appear in `response_facts["delayed_activities"]`
+    is dropped (never merged in), and the drop is logged — this is the
+    enforcement TL-5.4's acceptance criterion ("model output contains no
+    activity ID absent from the supplied context") actually rests on; the
+    prompt-level instruction is necessary but not sufficient (brief §34).
+    """
+    known_ids = {a["id"] for a in response_facts["delayed_activities"] if a.get("id") is not None}
+
+    def _by_id(items: list[dict]) -> dict[str, dict]:
+        kept, dropped = {}, []
+        for item in items:
+            item_id = item.get("id")
+            if item_id in known_ids:
+                kept[item_id] = item
+            else:
+                dropped.append(item_id)
+        if dropped:
+            logger.warning(f"  [PredictiveAgent] Dropped {len(dropped)} narrative entr(y/ies) with unsupplied id(s): {dropped}")
+        return kept
+
+    facts_by_id = {a["id"]: a for a in response_facts["delayed_activities"] if a.get("id") is not None}
+
+    root_cause_narratives = _by_id(narrative.get("root_cause_narratives", []))
+    root_cause_analysis = []
+    for fact in response_facts["root_cause_analysis"]:
+        text = root_cause_narratives.get(fact["id"], {})
+        root_cause_analysis.append({
+            **fact,
+            "why_it_matters": text.get("why_it_matters", _FALLBACK_NARRATIVE_TEXT),
+            "downstream_impact": text.get("downstream_impact", _FALLBACK_NARRATIVE_TEXT),
+            "consequence_if_unresolved": text.get("consequence_if_unresolved", _FALLBACK_NARRATIVE_TEXT),
+        })
+
+    resource_assessment = []
+    for item in _by_id(narrative.get("resource_assessment", [])).values():
+        fact = facts_by_id.get(item["id"], {})
+        resource_assessment.append({
+            "id": item["id"],
+            "task_name": fact.get("task_name", ""),
+            "human_label": fact.get("human_label", fact.get("task_name", "")),
+            "resource_type": item.get("resource_type"),
+            "assessment": item.get("assessment", _FALLBACK_NARRATIVE_TEXT),
+        })
+
+    forcing_assessment = []
+    for item in _by_id(narrative.get("forcing_assessment", [])).values():
+        fact = facts_by_id.get(item["id"], {})
+        forcing_assessment.append({
+            **{k: v for k, v in item.items()},
+            "task_name": fact.get("task_name", ""),
+            "human_label": fact.get("human_label", fact.get("task_name", "")),
+        })
+
+    area_narratives = {row.get("area"): row for row in narrative.get("summary_by_area_narratives", [])}
+    summary_by_area = [
+        {**fact, "summary": area_narratives.get(fact["area"], {}).get("summary", _FALLBACK_NARRATIVE_TEXT)}
+        for fact in response_facts["summary_by_area"]
+    ]
+
+    forceable = sum(1 for f in forcing_assessment if f.get("is_forceable") in ("possible", "limited"))
+    not_forceable = sum(1 for f in forcing_assessment if f.get("is_forceable") == "not_recommended")
+
+    biggest_risk_candidate = structured_context.get("biggest_risk_candidate")
+    predictive_biggest_risk = narrative.get("predictive_biggest_risk", {})
+    if biggest_risk_candidate is None:
+        # No confirmed root cause exists — the model was told not to invent
+        # one; override defensively rather than trust free text here, since
+        # there is nothing to ground it against.
+        predictive_biggest_risk = dict(_NO_ROOT_CAUSE_RISK)
+
+    insight_narrative = narrative.get("insight_narrative", {})
+    insight_data = {
+        **response_facts["insight_data"],
+        "forceable_count": forceable,
+        "not_forceable_count": not_forceable,
+        "primary_risk": insight_narrative.get("primary_risk", _FALLBACK_NARRATIVE_TEXT),
+        "critical_findings": insight_narrative.get("critical_findings", []),
+        "consequences_if_no_action": insight_narrative.get("consequences_if_no_action", []),
+    }
+
+    merged = {
+        "predictive_snapshot": narrative.get("predictive_snapshot", {}),
+        "predictive_biggest_risk": predictive_biggest_risk,
+        "executive_actions": [
+            {**a, "related_task_ids": [t for t in a.get("related_task_ids", []) if t in known_ids]}
+            for a in narrative.get("executive_actions", [])
+        ],
+        "management_conclusion": narrative.get("management_conclusion", ""),
+        "schedule_overview": response_facts["schedule_overview"],
+        "delayed_activities": response_facts["delayed_activities"],
+        "root_cause_analysis": root_cause_analysis,
+        "downstream_consequences": response_facts["downstream_consequences"],
+        "priority_actions": narrative.get("priority_actions", []),
+        "resource_assessment": resource_assessment,
+        "forcing_assessment": forcing_assessment,
+        "summary_by_area": summary_by_area,
+        "insight_data": insight_data,
+    }
+    # TL-5.6 (brief §31, §45): per-leaf `EvidenceClass` map, built from the
+    # exact dict being returned (not a second copy of the literal above) —
+    # classifying a stale duplicate would silently drift from what the
+    # caller actually receives the moment one copy is edited and the other
+    # is not, which is exactly the kind of undetected mismatch TL-5.6
+    # exists to prevent. Mirrors `analyze()`'s raw-path pattern: classify
+    # before attaching `_classification` itself (the classifier already
+    # skips `_`-prefixed keys, so call order here is not load-bearing, but
+    # matching the other path's order keeps the two call sites symmetric).
+    merged["_classification"] = _build_classification(merged)
+    return merged
+
+
+_FALLBACK_NARRATIVE_TEXT = "Detailed explanation not available for this item — see aggregate risk summary."
+
+_NO_ROOT_CAUSE_RISK = {
+    "risk_title": "No single dominant root cause confirmed",
+    "will_block": "No confirmed root cause could be identified from the current data; downstream impact cannot be attributed to a specific activity yet.",
+    "prevent_action_now": "Validate schedule dependencies to identify a root cause",
+}
+
+
 class PredictiveAgent:
     def __init__(self):
         self.client = AzureOpenAI(
@@ -1138,6 +1960,29 @@ Return complete JSON matching the strict schema."""
                 logger.error(f"  [PredictiveAgent] Schema validation failed — delayed_activities is not a list")
                 return {"predictive_insights": raw_content, "predictive_json": None, "model": self.deployment, "status": "error", "error": "Schema validation failed: delayed_activities is not a list"}
 
+            # --- TL-5.2 (brief §4, §15): SUPERSEDED, NOT YET REMOVED --------
+            # Everything below in this method — the `days_overdue <= 0` prune,
+            # the root-cause ratio "sanity fix" heuristics, and the
+            # critical_findings/management_conclusion regex renumbering — is a
+            # deterministic correction layer bolted onto LLM-invented facts.
+            # `src/trust/predictive_facts.py` (`detect_delayed_activities` +
+            # `compute_predictive_facts`) now computes the same facts directly
+            # in Python, from the schedule's own dependency graph, with no
+            # LLM step to correct after the fact.
+            #
+            # This code is intentionally still live: nothing in `src/main.py`
+            # calls the new module yet (that wiring is `TL-5.3`/`TL-5.4`), so
+            # this remains the only correction layer protecting the current
+            # `/predictive` endpoint. Deleting it now — before its replacement
+            # is actually in the request path — would remove a working safety
+            # net for zero gain, which is a regression, not a supersession.
+            # Scheduled for deletion in `TL-5.4` ("Demote predictive_agent to
+            # interpretation-only"), the task that rewires the routes. See
+            # `changes/trust-layer/plan/DECISIONS.md` ADR-018 for the full
+            # reasoning and the plan-deviation record (`phase-5-predictive-facts.md`
+            # TL-5.2's own text says "remove them"; this is a deliberate,
+            # documented departure from that instruction, not an oversight).
+            # ------------------------------------------------------------------
             original_count = len(parsed_json.get("delayed_activities", []))
             valid_delayed = [a for a in parsed_json["delayed_activities"] if a.get("days_overdue", 0) > 0]
             removed_count = original_count - len(valid_delayed)
@@ -1272,16 +2117,43 @@ Return complete JSON matching the strict schema."""
             delayed_ids = [a.get("id", "?") for a in parsed_json.get("delayed_activities", [])]
             logger.info(f"  [PredictiveAgent] Delayed activity IDs: {delayed_ids}")
 
+            # TL-5.6 (brief §31, §45): tag every output element with its
+            # `EvidenceClass`. Runs after the post-validation correction
+            # block above so the classification reflects the final shape
+            # the user actually sees, not the LLM's raw output. Same map
+            # the NUSF path's `_merge_narrative_into_facts` produces — both
+            # paths converge on the same classification discipline.
+            parsed_json["_classification"] = _build_classification(parsed_json)
+
+            # TL-6.1 (brief §33, §34): wrap the response in the agent
+            # response contract and run it through the render gate. Additive
+            # — `predictive_json`/`predictive_insights` are unchanged for
+            # existing callers (`format_predictive_as_html` etc.); this adds
+            # a parallel, gated view for callers ready to use it.
+            agent_response = validate_agent_response(
+                _build_agent_response(parsed_json, user_query=user_query, language=language), policy=GatePolicy.QUALIFY, language=language,
+            )
+
             return {
                 "predictive_insights": raw_content,
                 "predictive_json": parsed_json,
+                "agent_response": agent_response,
                 "model": self.deployment,
                 "status": "success",
                 "raw_llm_response": raw_content,
                 "reasoning_content": None,
                 "usage_info": ", ".join(usage_parts) if usage_parts else None,
                 "system_prompt": system_prompt,
-                "user_message": user_message
+                "user_message": user_message,
+                "versions": {
+                    "parser": "nusf-pipeline-v2.1" if data_format == "nusf" else "raw-parser-v1.0",
+                    "matching_algorithm": "nusf-matcher-v3.2",
+                    "analysis_engine": PREDICTIVE_ENGINE_VERSION,
+                    "prompt": PREDICTIVE_PROMPT_VERSION,
+                    "model": model_used,
+                    "schedule_revision": schedule_filename or "rev:current",
+                    "manual_corrections": "corrections:none",
+                },
             }
 
         except Exception as e:
@@ -1292,6 +2164,157 @@ Return complete JSON matching the strict schema."""
                 "model": self.deployment,
                 "status": "error",
                 "error": str(e)
+            }
+
+    def analyze_from_facts(
+        self,
+        structured_context: dict,
+        response_facts: dict,
+        user_query: str,
+        language: str = "en",
+        schedule_filename: str = None,
+        reference_date: str = None,
+    ) -> dict:
+        """TL-5.4: the interpretation-only entry point (brief §4, §17).
+
+        Unlike `analyze()`, this never asks the model to detect delays, count
+        activities, or invent per-activity facts. `structured_context`
+        (`src/trust/context.py`'s `build_predictive_context`) is the ONLY
+        schedule data the model sees — it is orders of magnitude smaller than
+        the raw text `analyze()` sends, and every fact in it already carries
+        a trust signal (brief §17). `response_facts`
+        (`build_response_facts`) never goes to the model at all; it is
+        merged into the model's narrative response afterward by
+        `_merge_narrative_into_facts`, which also enforces that no id absent
+        from `structured_context` survives into the final response.
+
+        No post-hoc correction block follows the API call here (contrast
+        `analyze()`'s TL-5.2-superseded block) — there is nothing to correct.
+        The facts merged in are already correct by construction; the only
+        thing this method's response can get wrong is narrative prose, which
+        is Phase 6's (`TL-6.3`) job to verify, not this method's to patch.
+        """
+        logger.info(f"  [PredictiveAgent] Starting narrative-only analysis with {self.deployment} (facts supplied, not requested)...")
+
+        lang_instruction = PREDICTIVE_NARRATIVE_LANGUAGE_INSTRUCTIONS.get(
+            language, PREDICTIVE_NARRATIVE_LANGUAGE_INSTRUCTIONS["en"]
+        )
+        system_prompt = f"{PREDICTIVE_NARRATIVE_SYSTEM_PROMPT}\n\n{lang_instruction}"
+
+        schedule_label = schedule_filename if schedule_filename else "Schedule"
+
+        cet = timezone(timedelta(hours=1))
+        today = datetime.now(cet).date()
+        da_days = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
+        en_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        da_months = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"]
+        en_months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        if language == "da":
+            today_str = f"{da_days[today.weekday()]} d. {today.day}. {da_months[today.month - 1]} {today.year}"
+        else:
+            today_str = f"{en_days[today.weekday()]}, {en_months[today.month - 1]} {today.day}, {today.year}"
+
+        ref_date_instruction = ""
+        if reference_date:
+            ref_date_instruction = f"\nThe structured context's `reference_date` field ({structured_context.get('reference_date')}) is authoritative — do not use any other date.\n"
+
+        context_json = json.dumps(structured_context, ensure_ascii=False, indent=2)
+
+        user_message = f"""{user_query}
+
+TODAY'S DATE: {today_str}
+Use this to set concrete deadlines in executive_actions (real day names and dates).
+
+Schedule filename: "{schedule_label}"
+{ref_date_instruction}
+═══════════════════════════════════════════════════════════
+STRUCTURED, VERIFIED CONTEXT (this is the ONLY schedule data you have — do not ask for more, do not assume more exists):
+═══════════════════════════════════════════════════════════
+{context_json}
+═══════════════════════════════════════════════════════════
+
+Return complete JSON matching the strict schema. Every id you write must come from the context above."""
+
+        messages: List[ChatCompletionMessageParam] = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+
+        logger.info(f"  [PredictiveAgent] Narrative LLM input ready (system={len(system_prompt)} chars, context={len(context_json)} chars)")
+
+        try:
+            api_params = {
+                "model": self.deployment,
+                "messages": messages,
+                "temperature": 0,
+                "top_p": 0.1,
+                "seed": 42,
+                "max_tokens": 8192,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": NOVA_NARRATIVE_SCHEMA,
+                },
+            }
+
+            response = self.client.chat.completions.create(**api_params)
+            choice = response.choices[0]
+            raw_content = choice.message.content or ""
+
+            if not raw_content and hasattr(choice.message, "refusal") and choice.message.refusal:
+                logger.warning(f"  [PredictiveAgent] Model refused: {choice.message.refusal}")
+                return {"predictive_insights": None, "predictive_json": None, "model": self.deployment, "status": "error", "error": f"Model refused: {choice.message.refusal}"}
+
+            if not raw_content:
+                logger.warning(f"  [PredictiveAgent] Empty content. finish_reason={choice.finish_reason}")
+                return {"predictive_insights": None, "predictive_json": None, "model": self.deployment, "status": "error", "error": "Empty response from model"}
+
+            try:
+                narrative = json.loads(raw_content)
+            except json.JSONDecodeError as je:
+                logger.error(f"  [PredictiveAgent] Narrative JSON parse error: {je}")
+                return {"predictive_insights": raw_content, "predictive_json": None, "model": self.deployment, "status": "error", "error": f"Invalid JSON: {je}"}
+
+            parsed_json = _merge_narrative_into_facts(response_facts, structured_context, narrative)
+
+            usage = getattr(response, "usage", None)
+            usage_parts = []
+            if usage:
+                usage_parts.append(f"prompt={usage.prompt_tokens}")
+                usage_parts.append(f"completion={usage.completion_tokens}")
+
+            logger.info(
+                f"  [PredictiveAgent] Narrative response merged: "
+                f"{len(parsed_json['delayed_activities'])} delayed activities (facts), "
+                f"{len(parsed_json['forcing_assessment'])} forcing assessments (narrative), model: {self.deployment}"
+            )
+
+            # TL-6.1 (brief §33, §34): same gate as `analyze()` — additive,
+            # `predictive_json` is unchanged for existing callers.
+            agent_response = validate_agent_response(
+                _build_agent_response(parsed_json, user_query=user_query, language=language), policy=GatePolicy.QUALIFY, language=language,
+            )
+
+            return {
+                "predictive_insights": raw_content,
+                "predictive_json": parsed_json,
+                "agent_response": agent_response,
+                "model": self.deployment,
+                "status": "success",
+                "raw_llm_response": raw_content,
+                "reasoning_content": None,
+                "usage_info": ", ".join(usage_parts) if usage_parts else None,
+                "system_prompt": system_prompt,
+                "user_message": user_message,
+            }
+
+        except Exception as e:
+            logger.error(f"  [PredictiveAgent] Error: {e}")
+            return {
+                "predictive_insights": None,
+                "predictive_json": None,
+                "model": self.deployment,
+                "status": "error",
+                "error": str(e),
             }
 
 

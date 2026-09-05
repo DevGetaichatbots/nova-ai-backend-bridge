@@ -103,6 +103,116 @@ def _floor_from_path_part(part: str) -> str:
     return ""
 
 
+def _has_cell_evidence(cells, headers: List[str], row_idx: int,
+                        col_name: Optional[str]) -> bool:
+    """True iff a non-None cell exists at `(row_idx, col_name)` in `cells`.
+
+    `FieldMapper.get()` returns the static YAML column mapping even
+    when the column does not appear in the data's `headers` (e.g.
+    `duration → "Varighed"` in `pdf.yaml`). Without this check, the
+    engine would treat a column that doesn't actually exist in the
+    source as "mapped" and emit a Provenance with `extraction_method`
+    `"unknown"` — the worst of both worlds (looks like real
+    provenance, isn't). This helper says "if the cell is missing,
+    fall through to the derived/omitted path".
+
+    Defined at module level so the closure does not get recreated
+    per loop iteration.
+    """
+    if not col_name or not cells or col_name not in headers:
+        return False
+    try:
+        col_idx = headers.index(col_name)
+        if row_idx < len(cells) and col_idx < len(cells[row_idx]):
+            return cells[row_idx][col_idx] is not None
+    except ValueError:
+        pass
+    return False
+
+
+def _build_field_provenance(
+    field_col: Optional[str],
+    row_idx: int,
+    raw_value,
+    normalized_value,
+    recognition: "RecognitionResult",
+    cells,
+    headers: List[str],
+    filename: str,
+    *,
+    default_extraction_method: str = "unknown",
+    source_field_override: Optional[str] = None,
+):
+    """Build Provenance for `field_col` at `row_idx`.
+
+    TL-1.4 + TL-1.5: if `cells` is available and contains a non-None
+    cell at `(row_idx, col_idx)` for `field_col`, the resulting
+    Provenance carries the full TL-1.1 / TL-1.2 evidence set
+    (raw/normalized values, OCR confidence, page number, bounding
+    box, source document, extraction method). Otherwise the legacy
+    four-field shape is returned (with `raw_value` and
+    `normalized_value` populated so AC2 is always satisfiable).
+
+    `default_extraction_method` is used in the no-cell fallback
+    branch — TL-1.5 derives fields like `duration_hours` (from a
+    date delta) and `area` / `floor` / `phase` (from a parsed
+    `location_path`) and needs those fields marked
+    `extraction_method="derived"` so downstream consumers can
+    distinguish "read from source" from "computed by Nova".
+
+    `source_field_override` substitutes for `field_col` in the
+    fallback branch — for derived fields with no source column,
+    `field_col=None` and we still need a meaningful
+    `source_field` value (e.g. "computed_from_location_path")
+    rather than an empty string.
+
+    The legacy path is silent — never throws, never fabricates an
+    OCR confidence. Defined at module level so the closure does
+    not get recreated per loop iteration inside
+    `NormalizeEngine.normalize()`.
+    """
+    cell: Optional[Dict] = None
+    if cells is not None and field_col is not None and field_col in headers:
+        try:
+            col_idx = headers.index(field_col)
+            if row_idx < len(cells) and col_idx < len(cells[row_idx]):
+                cell = cells[row_idx][col_idx]
+        except ValueError:
+            cell = None
+
+    if cell is not None:
+        return Provenance(
+            source_field=field_col or "",
+            source_row=row_idx,
+            is_ai_inferred=recognition.ai_needed,
+            column_mapping_confidence=recognition.confidence,
+            raw_value=raw_value,
+            normalized_value=normalized_value,
+            ocr_confidence=cell.get("ocr_confidence"),
+            page_number=cell.get("page_number"),
+            bounding_box=cell.get("bounding_box"),
+            source_document=cell.get("source_document", filename),
+            extraction_method=cell.get("extraction_method", "unknown"),
+        )
+    # Fallback — no cell, or column unmapped, or cell position
+    # is empty. TL-1.5: callers can mark derived fields via
+    # `default_extraction_method="derived"`. Legacy callers (no
+    # derived support) pass through with the default `"unknown"`.
+    return Provenance(
+        source_field=source_field_override or field_col or "",
+        source_row=row_idx,
+        is_ai_inferred=recognition.ai_needed,
+        column_mapping_confidence=recognition.confidence,
+        raw_value=raw_value,
+        normalized_value=normalized_value,
+        ocr_confidence=None,
+        page_number=None,
+        bounding_box=None,
+        source_document=filename if not cell else None,
+        extraction_method=default_extraction_method,
+    )
+
+
 def _location_parts(location_path: str, area_raw: str = "", floor_raw: str = "") -> tuple[str, str, str]:
     parts = _split_location_path(location_path)
     area = _stable_text(area_raw)
@@ -150,6 +260,18 @@ class NormalizationEngine:
         t0 = time.time()
         headers: List[str] = extracted.get("headers", [])
         rows: List[List[str]] = extracted.get("rows", [])
+        # TL-1.4: per-cell provenance threaded through from the
+        # extractors (`ingestion/extractors/pdf.py`). The cells are a
+        # parallel 2D grid (`cells[row_idx][col_idx]` → cell dict or
+        # `None`); the dict carries the TL-1.2 evidence fields
+        # (`ocr_confidence`, `page_number`, `bounding_box`) plus
+        # `extraction_method`. `None` is the load-bearing sentinel
+        # meaning "no cell at this position" (ADR-009 / ADR-010).
+        # When `cells` is absent (non-OCR sources pre-TL-1.9, or
+        # legacy data), the Provenance construction falls back to the
+        # pre-TL-1.4 four-field shape — no throw, no fabricated
+        # evidence.
+        cells = extracted.get("cells")
 
         mapper = FieldMapper(source_system, recognition.column_map)
 
@@ -237,22 +359,25 @@ class NormalizationEngine:
             raw_pct = _get_val(row, headers, pct_col)
             pct = _pct_to_float(raw_pct)
 
-            raw_source_id = _get_val(row, headers, effective_id_col)
+            raw_source_id_val = _get_val(row, headers, effective_id_col)
+            raw_source_id = raw_source_id_val.strip() if raw_source_id_val and raw_source_id_val.strip() else None
             raw_location_path = _get_val(row, headers, area_col)
+
+            id_is_durable = recognition.match_key in ("entydigt_id", "tbs")
             if recognition.match_key == "name_location":
-                raw_source_id = f"{_stable_text(raw_name)} | {_stable_text(raw_location_path)}"
-            # match_key "id"/"row_index" means the source only exposes a bare
-            # positional column (MS Project's "ID", or no id column at all) —
-            # that renumbers whenever tasks are added/reordered, so it is not
-            # safe as a cross-version join key even though it looks like one.
-            # Only genuinely durable sources (Entydigt/Unique Id, TBS/WBS code,
-            # or the name+location composite) get to populate stable_key; a
-            # positional id is kept in source_id for display only.
-            id_is_durable = recognition.match_key in ("entydigt_id", "tbs", "name_location")
-            if not raw_source_id:
-                raw_source_id = str(row_idx + 1)
-                id_is_durable = False
-            stable_key = raw_source_id if id_is_durable else ""
+                stable_key = f"{_stable_text(raw_name)} | {_stable_text(raw_location_path)}"
+            else:
+                stable_key = raw_source_id if (id_is_durable and raw_source_id) else ""
+
+            if raw_source_id and id_is_durable:
+                act_match_key = raw_source_id
+                act_match_method = "verified_source_id"
+            elif stable_key:
+                act_match_key = stable_key
+                act_match_method = "name_location_composite" if recognition.match_key == "name_location" else "stable_key"
+            else:
+                act_match_key = f"{_stable_text(raw_name)} | {_stable_text(raw_location_path)}"
+                act_match_method = "positional" if recognition.match_key in ("id", "row_index") else "name_location_composite"
 
             raw_wbs = _get_val(row, headers, wbs_col)
             raw_disc = _get_val(row, headers, disc_col)
@@ -293,36 +418,258 @@ class NormalizationEngine:
             internal_id = str(uuid.uuid4())
 
             provenance: Dict[str, Provenance] = {}
+            # TL-1.5: every critical field gets a Provenance entry
+            # built from its originating cell (when one exists), or
+            # marked `extraction_method="derived"` when the value was
+            # computed by Nova rather than read. Secondary fields
+            # follow the same rule but only when the source data
+            # carries the value. The legacy `_row` fallback is
+            # preserved as a last resort, marked
+            # `extraction_method="unknown"` so it cannot be confused
+            # with real provenance. Every Provenance carries
+            # `raw_value` / `normalized_value` so the pre- vs post-
+            # normalization distinction (AC2) is always visible.
+            # Note: `row_idx` is NOT in this dict — every call site
+            # below passes it positionally to keep the helper's
+            # positional contract (field_col, row_idx, raw_value,
+            # normalized_value, ...) intact.
+            common_kwargs = {
+                "recognition": recognition,
+                "cells": cells, "headers": headers, "filename": filename,
+            }
+
+            # --- Critical fields (brief §6) ---
+
+            # 1. source_id (verbatim from document, or None if no ID column existed).
+            if raw_source_id is not None and effective_id_col:
+                provenance["source_id"] = _build_field_provenance(
+                    effective_id_col, row_idx,
+                    raw_value=raw_source_id,
+                    normalized_value=raw_source_id,
+                    **common_kwargs,
+                )
+            else:
+                provenance["source_id"] = _build_field_provenance(
+                    None, row_idx,
+                    raw_value=None,
+                    normalized_value=None,
+                    default_extraction_method="derived",
+                    source_field_override="unverified",
+                    **common_kwargs,
+                )
+
+            # 2. name (read).
             if name_col:
-                provenance["name"] = Provenance(
-                    source_field=name_col, source_row=row_idx,
-                    is_ai_inferred=recognition.ai_needed,
-                    confidence=recognition.confidence,
+                provenance["name"] = _build_field_provenance(
+                    name_col, row_idx,
+                    raw_value=raw_name, normalized_value=raw_name,
+                    **common_kwargs,
                 )
+
+            # 3. planned_start (read + parsed).
             if start_col:
-                provenance["planned_start"] = Provenance(
-                    source_field=start_col, source_row=row_idx,
-                    is_ai_inferred=recognition.ai_needed,
-                    confidence=recognition.confidence,
+                provenance["planned_start"] = _build_field_provenance(
+                    start_col, row_idx,
+                    raw_value=raw_start,
+                    normalized_value=(
+                        planned_start.isoformat() if planned_start else None
+                    ),
+                    **common_kwargs,
                 )
+
+            # 4. planned_finish (read + parsed).
             if finish_col:
-                provenance["planned_finish"] = Provenance(
-                    source_field=finish_col, source_row=row_idx,
-                    is_ai_inferred=recognition.ai_needed,
-                    confidence=recognition.confidence,
+                provenance["planned_finish"] = _build_field_provenance(
+                    finish_col, row_idx,
+                    raw_value=raw_finish,
+                    normalized_value=(
+                        planned_finish.isoformat() if planned_finish else None
+                    ),
+                    **common_kwargs,
                 )
+
+            # 5. duration_hours. Read from `dur_col` when present;
+            # when the source value is 0/empty and a non-zero
+            # duration was *derived* from the planned start/finish
+            # delta (engine.py:306–308), the Provenance marks it
+            # `extraction_method="derived"` so downstream consumers
+            # can distinguish "read from source" from "computed by
+            # Nova" (ADR-013). Without this distinction a trust
+            # layer downstream would have no way to know whether
+            # the duration is sourced or computed.
+            #
+            # `_has_cell_evidence` is checked first because the
+            # static YAML config can map `duration → "Varighed"`
+            # even when the source data does not actually carry a
+            # Varighed column. Without this check, `dur_col` would
+            # be truthy and the engine would emit a Provenance with
+            # `extraction_method="unknown"` for a field that was
+            # never actually read.
+            if _has_cell_evidence(cells, headers, row_idx, dur_col):
+                provenance["duration_hours"] = _build_field_provenance(
+                    dur_col, row_idx,
+                    raw_value=raw_dur, normalized_value=str(duration_hours),
+                    **common_kwargs,
+                )
+            elif duration_hours > 0:
+                provenance["duration_hours"] = _build_field_provenance(
+                    None, row_idx,
+                    raw_value=(
+                        f"start={planned_start.isoformat()},"
+                        f"finish={planned_finish.isoformat()}"
+                    ),
+                    normalized_value=str(duration_hours),
+                    default_extraction_method="derived",
+                    source_field_override="computed_from_planned_start_finish",
+                    **common_kwargs,
+                )
+
+            # 6. percent_complete (read + parsed by `_pct_to_float`).
+            # AC1: always emit a Provenance entry for this critical field
+            # when the column is mapped, even on the legacy path
+            # (cells=None). `_build_field_provenance` handles the
+            # cell-vs-no-cell distinction and emits `ocr_confidence=None`
+            # in the fallback — that is the correct honest encoding for
+            # "not OCR-derived" per ADR-009 / ADR-010.
+            if pct_col:
+                provenance["percent_complete"] = _build_field_provenance(
+                    pct_col, row_idx,
+                    raw_value=raw_pct, normalized_value=str(pct),
+                    **common_kwargs,
+                )
+
+            # --- Secondary fields (brief §6) ---
+
+            # 7. location_path (read from area column).
+            if _has_cell_evidence(cells, headers, row_idx, area_col) and raw_location_path:
+                provenance["location_path"] = _build_field_provenance(
+                    area_col, row_idx,
+                    raw_value=raw_location_path,
+                    normalized_value=raw_location_path,
+                    **common_kwargs,
+                )
+
+            # 8. area. Read from `area_col` if it had a real value;
+            # otherwise derived from `location_path` via `_location_parts`.
+            if _has_cell_evidence(cells, headers, row_idx, area_col) and area:
+                provenance["area"] = _build_field_provenance(
+                    area_col, row_idx,
+                    raw_value=raw_location_path,
+                    normalized_value=area,
+                    **common_kwargs,
+                )
+            elif area:
+                provenance["area"] = _build_field_provenance(
+                    None, row_idx,
+                    raw_value=raw_location_path,
+                    normalized_value=area,
+                    default_extraction_method="derived",
+                    source_field_override="computed_from_location_path",
+                    **common_kwargs,
+                )
+
+            # 9. floor. Read from `floor_col`; else derived.
+            if _has_cell_evidence(cells, headers, row_idx, floor_col) and floor:
+                provenance["floor"] = _build_field_provenance(
+                    floor_col, row_idx,
+                    raw_value=raw_floor,
+                    normalized_value=floor,
+                    **common_kwargs,
+                )
+            elif floor:
+                provenance["floor"] = _build_field_provenance(
+                    None, row_idx,
+                    raw_value=raw_location_path,
+                    normalized_value=floor,
+                    default_extraction_method="derived",
+                    source_field_override="computed_from_location_path",
+                    **common_kwargs,
+                )
+
+            # 10. phase. Always derived from `location_path`
+            # (no direct column source in the current schema).
+            if phase:
+                provenance["phase"] = _build_field_provenance(
+                    None, row_idx,
+                    raw_value=raw_location_path,
+                    normalized_value=phase,
+                    default_extraction_method="derived",
+                    source_field_override="computed_from_location_path",
+                    **common_kwargs,
+                )
+
+            # 11. discipline. Read from `disc_col` if it carried a
+            # value; else derived from area/floor (the
+            # engine.py:336–345 fallback chain). The
+            # `source_field_override` says "we computed this from
+            # area/floor" so the derived provenance reads true.
+            if _has_cell_evidence(cells, headers, row_idx, disc_col) and discipline:
+                provenance["discipline"] = _build_field_provenance(
+                    disc_col, row_idx,
+                    raw_value=raw_disc,
+                    normalized_value=discipline,
+                    **common_kwargs,
+                )
+            elif discipline:
+                disc_raw = raw_disc or (
+                    f"floor={raw_floor},area={raw_area}"
+                    if (raw_floor or raw_area)
+                    else None
+                )
+                if disc_raw:
+                    provenance["discipline"] = _build_field_provenance(
+                        area_col or floor_col, row_idx,
+                        raw_value=disc_raw,
+                        normalized_value=discipline,
+                        default_extraction_method="derived",
+                        source_field_override="computed_from_area_floor",
+                        **common_kwargs,
+                    )
+
+            # 12. critical_flag (read + boolean-parsed).
+            if _has_cell_evidence(cells, headers, row_idx, critical_col) and critical_flag is not None:
+                provenance["critical_flag"] = _build_field_provenance(
+                    critical_col, row_idx,
+                    raw_value=str(critical_flag),
+                    normalized_value=str(critical_flag),
+                    **common_kwargs,
+                )
+
+            # 13. total_float (read + float-parsed).
+            if _has_cell_evidence(cells, headers, row_idx, total_float_col) and total_float is not None:
+                provenance["total_float"] = _build_field_provenance(
+                    total_float_col, row_idx,
+                    raw_value=raw_float, normalized_value=str(total_float),
+                    **common_kwargs,
+                )
+
+            # --- Last-resort fallback ---
+            # Only emitted when *no* field above produced a
+            # Provenance entry — i.e. we know we saw this row but
+            # cannot say anything specific about where any value
+            # came from. Marked `extraction_method="unknown"` so it
+            # cannot be confused with real provenance (ADR-013).
             if not provenance:
                 provenance["_row"] = Provenance(
                     source_field=f"row_{row_idx}",
                     source_row=row_idx,
                     is_ai_inferred=False,
-                    confidence=1.0,
+                    column_mapping_confidence=1.0,
+                    raw_value=None,
+                    normalized_value=None,
+                    ocr_confidence=None,
+                    page_number=None,
+                    bounding_box=None,
+                    source_document=filename,
+                    extraction_method="unknown",
                 )
 
             activity = Activity(
                 internal_id=internal_id,
                 source_id=raw_source_id,
                 stable_key=stable_key,
+                match_key=act_match_key,
+                match_method=act_match_method,
                 name=raw_name or f"Activity {row_idx + 1}",
                 wbs_code=raw_wbs or None,
                 wbs_level=raw_wbs.count(".") if raw_wbs else 0,
@@ -351,7 +698,8 @@ class NormalizationEngine:
             )
 
             activities.append(activity)
-            source_id_to_internal[raw_source_id] = internal_id
+            if raw_source_id:
+                source_id_to_internal[raw_source_id] = internal_id
 
             raw_pred = _get_val(row, headers, pred_col) if pred_col else ""
             raw_succ = _get_val(row, headers, succ_col) if succ_col else ""
@@ -513,7 +861,7 @@ def to_nusf_chunks(schedule: NormalizedSchedule) -> List[Dict[str, Any]]:
         compact_lines = []
         for act in batch:
             compact_lines.append(_serialize_row([
-                act.source_id,
+                act.source_id or "",
                 act.stable_key or "",
                 act.name,
                 _fmt_dt(act.planned_start),

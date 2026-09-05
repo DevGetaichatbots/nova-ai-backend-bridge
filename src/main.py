@@ -22,6 +22,7 @@ import threading
 _query_executor = ThreadPoolExecutor(max_workers=4)
 _upload_progress: Dict[str, Dict[str, Any]] = {}
 _predictive_progress: Dict[str, Dict[str, Any]] = {}
+_source_file_cache: Dict[str, bytes] = {}
 _progress_lock = threading.Lock()
 
 PROGRESS_STAGES = {
@@ -80,6 +81,17 @@ PROGRESS_STAGES = {
         "total_steps": 6,
         "en": "Your analysis is ready!",
         "da": "Din analyse er klar!"
+    },
+    # TL-7.8 (brief §42): a BLOCK gating decision (TL-4.6/TL-5.5) is a
+    # protective pause, not a failure — it must not share the "error"
+    # stage's alarming copy. Kept distinct from "error" so a poller can
+    # tell "Nova crashed" from "Nova declined to guess" apart, and render
+    # each one differently (see `_truncation_block_response` below).
+    "blocked": {
+        "step": -1,
+        "total_steps": 6,
+        "en": "Nova paused this analysis to avoid producing an unreliable result. Review required.",
+        "da": "Nova satte denne analyse på pause for at undgå et upålideligt resultat. Gennemgang påkrævet."
     },
     "error": {
         "step": -1,
@@ -215,6 +227,10 @@ from src.database import init_pgvector_extension, create_chat_memory_table, save
 from src.html_formatter import format_response_as_html
 from src.predictive_html_formatter import format_predictive_as_html
 from src.pdf_processor import process_pdf_binary, rows_to_compact_csv_chunks
+import dataclasses
+
+from src.trust.preflight import TruncationReport, gate_context_completeness
+from src.trust.review_queue import build_review_queue
 
 
 def _parse_history_table_names(value: str | None) -> list[str]:
@@ -370,6 +386,8 @@ async def upload_schedules(
         old_pdf_bytes = await old_schedule.read()
         new_pdf_bytes = await new_schedule.read()
         logger.info(f"Files read: old={len(old_pdf_bytes)} bytes, new={len(new_pdf_bytes)} bytes")
+        _source_file_cache[f"{session_id}:old"] = old_pdf_bytes
+        _source_file_cache[f"{session_id}:new"] = new_pdf_bytes
         
         upload_id = str(uuid.uuid4())[:8]
         _upload_progress[upload_id] = {
@@ -761,14 +779,15 @@ def _process_mspdi_to_chunks(file_bytes: bytes, filename: str) -> list[dict]:
     return rows_to_compact_csv_chunks(headers, rows, filename)
 
 
-def _process_file_to_nusf_chunks(file_bytes: bytes, filename: str) -> list[dict]:
-    """
-    Run the universal ingestion pipeline and require a valid NUSF output.
-    This is used when the caller explicitly requests NUSF mode for downstream
-    comparison/dashboard flows.
+def _run_nusf_pipeline(file_bytes: bytes, filename: str):
+    """Run the universal ingestion pipeline once and require a valid NUSF
+    output — the `ScheduleMetadata` object (with `.activities`), not text
+    chunks. Shared by `_process_file_to_nusf_chunks` (legacy text-chunk
+    consumers, e.g. RAG query context) and `_run_nusf_predictive_analysis`
+    (TL-5.4's deterministic facts path), so a NUSF-format PDF is never OCR'd
+    twice for the same request.
     """
     from ingestion.pipeline import IngestionPipeline, PipelineError
-    from ingestion.normalization.engine import to_nusf_chunks
 
     pipeline = IngestionPipeline()
     try:
@@ -780,6 +799,18 @@ def _process_file_to_nusf_chunks(file_bytes: bytes, filename: str) -> list[dict]
         raise ValueError(
             f"NUSF generation failed for '{filename}': normalization produced 0 activities"
         )
+    return schedule_obj
+
+
+def _process_file_to_nusf_chunks(file_bytes: bytes, filename: str) -> list[dict]:
+    """
+    Run the universal ingestion pipeline and require a valid NUSF output.
+    This is used when the caller explicitly requests NUSF mode for downstream
+    comparison/dashboard flows.
+    """
+    from ingestion.normalization.engine import to_nusf_chunks
+
+    schedule_obj = _run_nusf_pipeline(file_bytes, filename)
 
     chunks = to_nusf_chunks(schedule_obj)
     if not chunks:
@@ -792,6 +823,60 @@ def _process_file_to_nusf_chunks(file_bytes: bytes, filename: str) -> list[dict]
         f"{len(chunks)} chunk(s), quality={schedule_obj.metadata.parse_quality_score}"
     )
     return chunks
+
+
+def _run_nusf_predictive_analysis(
+    schedule_obj,
+    filename_clean: str,
+    user_query: str,
+    language: str,
+    reference_date_str: Optional[str],
+) -> dict:
+    """TL-5.4: the deterministic-facts + narrative-only predictive path for
+    NUSF-format schedules (brief §4, §17). Replaces sending a raw text dump
+    to `predictive_agent.analyze()` — the model never sees this schedule's
+    raw rows, only the small structured context
+    `src/trust/context.py`'s `build_predictive_context` produces, and every
+    fact in the final response (`schedule_overview`, `delayed_activities`,
+    `downstream_consequences`, the deterministic half of `insight_data`) is
+    computed here in Python, never asked of the model
+    (`build_response_facts`).
+
+    Only reachable when `data_format == "nusf"` — the raw OCR-text path has
+    no structured `Activity` list to compute facts from and is unchanged
+    (still `predictive_agent.analyze()`, still carrying its TL-5.2
+    correction block as the only safety net for that path; see ADR-021).
+    """
+    import json as _json
+    from datetime import timezone as _timezone, timedelta as _timedelta
+    from src.trust.context import build_predictive_context, build_response_facts
+    from src.trust.predictive_facts import compute_predictive_facts, detect_delayed_activities
+
+    if reference_date_str:
+        ref_date = datetime.strptime(reference_date_str, "%d-%m-%Y").date()
+    else:
+        ref_date = datetime.now(_timezone(_timedelta(hours=1))).date()  # CET, matches PredictiveAgent's own "today"
+
+    activities = schedule_obj.activities
+    delayed = detect_delayed_activities(activities, ref_date)
+    facts = compute_predictive_facts(delayed, activities)
+    structured_context = build_predictive_context(facts, activities, ref_date)
+    response_facts = build_response_facts(facts, activities, filename_clean, ref_date, "NUSF")
+
+    logger.info(
+        f"  [NUSF Predictive] {filename_clean}: {len(activities)} activities, "
+        f"{len(facts)} delayed (deterministic, no LLM), structured context = "
+        f"{len(_json.dumps(structured_context))} bytes"
+    )
+
+    return predictive_agent.analyze_from_facts(
+        structured_context=structured_context,
+        response_facts=response_facts,
+        user_query=user_query,
+        language=language,
+        schedule_filename=filename_clean,
+        reference_date=reference_date_str,
+    )
 
 def _detect_delimiter(sample: str) -> str:
     counts = {}
@@ -826,20 +911,50 @@ def _parse_csv_to_chunks(file_bytes: bytes, filename: str) -> list[dict]:
     return rows_to_compact_csv_chunks(headers, data_rows, filename)
 
 
-def _build_predictive_context_from_csv(file_bytes: bytes, filename: str) -> str:
+def _build_predictive_context_from_csv(file_bytes: bytes, filename: str) -> tuple[str, TruncationReport]:
+    """TL-5.5 wrapper: returns `(context, truncation_report)` — see
+    `_build_predictive_context` for the gate."""
     chunks = _parse_csv_to_chunks(file_bytes, filename)
     filename_clean = filename.replace('.csv', '').replace('.CSV', '')
     return _build_predictive_context(chunks, filename_clean)
 
 
-def _build_predictive_context(chunks: list[dict], filename: str) -> str:
+def _build_predictive_context(chunks: list[dict], filename: str) -> tuple[str, TruncationReport]:
+    """Build the raw-text predictive context from extracted chunks.
+
+    TL-5.5 (brief §17, §28): the byte budget is now a backstop, not a
+    silent drop. Returns `(context, truncation_report)`; the caller MUST
+    act on the report — BLOCK → refuse via
+    `_truncation_block_response`, PARTIAL → include the report in the
+    response payload so the omission is enumerated, PASS → proceed.
+
+    `gate_context_completeness` (in `src/trust/preflight.py`) owns the
+    PASS/PARTIAL/BLOCK decision and the threshold for BLOCK; this
+    function only measures (total vs included chunks and bytes) and
+    calls it. The pre-TL-5.5 behavior — a `logger.warning` plus silent
+    omission — was exactly the failure mode this task exists to close
+    (brief §17: "Do not send huge raw OCR dumps to the LLM and ask
+    'What is happening?' Instead generate structured verified context";
+    the byte cap was always a stopgap, and stopgaps that drop silently
+    are worse than the cliff they paper over).
+    """
     doc_label = f"Schedule ({filename})"
     MAX_PREDICTIVE_CONTEXT_BYTES = 1_900_000
 
     table_chunks = [c for c in chunks if c.get("metadata", {}).get("type") == "table"]
 
     if not table_chunks:
-        return f"[{doc_label}]\nNo schedule data could be extracted.\n"
+        # "No schedule data could be extracted" — BLOCK (not PASS).
+        # There is nothing to analyze, which is a stronger failure than
+        # partial coverage, not the absence of one. `gate_context_completeness`
+        # already encodes this as BLOCK on `total_chunks == 0`.
+        empty = f"[{doc_label}]\nNo schedule data could be extracted.\n"
+        return empty, gate_context_completeness(
+            total_chunks=0,
+            included_chunks=0,
+            total_bytes=0,
+            included_bytes=0,
+        )
 
     preamble = "\n".join([
         f"[{doc_label}] — COMPLETE SCHEDULE DATA",
@@ -847,21 +962,65 @@ def _build_predictive_context(chunks: list[dict], filename: str) -> str:
         ""
     ])
 
+    total_bytes = sum(len(c["content"].encode("utf-8")) + 1 for c in table_chunks)
     budget = MAX_PREDICTIVE_CONTEXT_BYTES - len(preamble.encode("utf-8"))
     included_parts = []
-    current_bytes = 0
+    included_bytes = 0
     for chunk in table_chunks:
         chunk_bytes = len(chunk["content"].encode("utf-8")) + 1
-        if current_bytes + chunk_bytes > budget:
-            logger.warning(f"  [Predictive] Context trimmed at {current_bytes} bytes (limit: {MAX_PREDICTIVE_CONTEXT_BYTES})")
+        if included_bytes + chunk_bytes > budget:
+            # TL-5.5: no `logger.warning` and continue. The truncation
+            # report carries the signal; the caller decides
+            # PASS/PARTIAL/BLOCK. See module docstring.
             break
         included_parts.append(chunk["content"])
-        current_bytes += chunk_bytes
+        included_bytes += chunk_bytes
 
     result = preamble + "\n".join(included_parts) + "\n"
+    truncation_report = gate_context_completeness(
+        total_chunks=len(table_chunks),
+        included_chunks=len(included_parts),
+        total_bytes=total_bytes,
+        included_bytes=included_bytes,
+    )
     total_rows = sum(c.get("metadata", {}).get("row_count", 0) for c in table_chunks)
-    logger.info(f"  [Predictive] Context: {len(result)} bytes — {len(included_parts)}/{len(table_chunks)} chunks, ~{total_rows} rows")
-    return result
+    logger.info(
+        f"  [Predictive] Context: {len(result)} bytes — "
+        f"{len(included_parts)}/{len(table_chunks)} chunks, ~{total_rows} rows; "
+        f"truncation: {truncation_report.decision}"
+    )
+    return result, truncation_report
+
+
+def _truncation_block_response(
+    report: TruncationReport,
+    analysis_id: str,
+    language: str,
+    filename: str,
+) -> Dict[str, Any]:
+    """TL-5.5: structured BLOCK response for `_build_predictive_context`
+    gating. Same shape vocabulary as
+    `PreflightReport.to_refusal_response` (TL-4.6) so callers don't need
+    a second refusal contract.
+
+    TL-7.8 (brief §42): marks progress as 'blocked', not 'error' — a
+    BLOCK is Nova protecting the user from an unreliable result, not a
+    crash, and collapsing the two into the same polling stage is exactly
+    the error-shaped presentation brief §42 asks to replace. Schedules
+    cleanup so the analysis id doesn't leak into the progress dict."""
+    _update_progress(analysis_id, "blocked", language, "Context truncated beyond BLOCK threshold")
+    _schedule_progress_cleanup(analysis_id, delay=60)
+    logger.warning(
+        f"  [Predictive] BLOCK on context truncation: {report.reason} "
+        f"(included {report.included_chunks}/{report.total_chunks} chunks, "
+        f"{report.included_bytes}/{report.total_bytes} bytes)"
+    )
+    response = report.to_refusal_response(language)
+    response.update({
+        "analysis_id": analysis_id,
+        "filename": filename,
+    })
+    return response
 
 
 @app.post("/predictive")
@@ -895,6 +1054,7 @@ async def predictive_analysis(
     try:
         file_bytes = await schedule.read()
         logger.info(f"  File read: {len(file_bytes)} bytes")
+        _source_file_cache[f"{analysis_id}:single"] = file_bytes
 
         _update_progress(analysis_id, "reading", language, f"{len(file_bytes) // 1024} KB")
 
@@ -904,19 +1064,31 @@ async def predictive_analysis(
         is_mpp_file = _is_mpp(filename)
         is_mspdi_file = _is_mspdi(filename)
 
+        # TL-5.5: `truncation_report` is set by the raw-text branches below.
+        # The NUSF branch builds a structured JSON context (no byte-budget
+        # gate applies), so it deliberately leaves the report as `None` —
+        # the response builder checks for that and omits
+        # `context_completeness` rather than publishing a meaningless one.
+        truncation_report: Optional[TruncationReport] = None
+
         if data_format == "nusf":
             logger.info(f"  Running NUSF normalization pipeline...")
-            chunks = await loop.run_in_executor(
+            schedule_obj = await loop.run_in_executor(
                 _query_executor,
-                lambda: _process_file_to_nusf_chunks(file_bytes, filename)
+                lambda: _run_nusf_pipeline(file_bytes, filename)
             )
-            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
+            row_count = len(schedule_obj.activities)
             parse_elapsed = time.time() - start_time
-            logger.info(f"  NUSF pipeline complete ({parse_elapsed:.1f}s): {len(chunks)} chunks, ~{row_count} rows")
-            context = _build_predictive_context(chunks, filename_clean)
+            logger.info(f"  NUSF pipeline complete ({parse_elapsed:.1f}s): {row_count} activities")
+            # Not sent to the model (TL-5.4 — see `_run_nusf_predictive_analysis`);
+            # kept only so the length-logging line below and the best-effort
+            # debug dump further down have a `context` to report on.
+            context = f"[NUSF structured facts for {row_count} activities — see structured context, not a text dump]"
         elif is_csv_file:
             logger.info(f"  Parsing CSV directly (no OCR needed)...")
-            context = _build_predictive_context_from_csv(file_bytes, filename_clean)
+            context, truncation_report = _build_predictive_context_from_csv(file_bytes, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
             row_count = context.count("\n")
             parse_elapsed = time.time() - start_time
             logger.info(f"  CSV parsed in {parse_elapsed:.1f}s")
@@ -930,7 +1102,9 @@ async def predictive_analysis(
             row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
             parse_elapsed = time.time() - start_time
             logger.info(f"  MPP parsed in {parse_elapsed:.1f}s: {table_count} chunks, ~{row_count} rows")
-            context = _build_predictive_context(chunks, filename_clean)
+            context, truncation_report = _build_predictive_context(chunks, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
         elif is_mspdi_file:
             logger.info(f"  Parsing MS Project XML (no OCR needed)...")
             chunks = await loop.run_in_executor(
@@ -941,7 +1115,9 @@ async def predictive_analysis(
             row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
             parse_elapsed = time.time() - start_time
             logger.info(f"  MSPDI parsed in {parse_elapsed:.1f}s: {table_count} chunks, ~{row_count} rows")
-            context = _build_predictive_context(chunks, filename_clean)
+            context, truncation_report = _build_predictive_context(chunks, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
         else:
             logger.info(f"  Running OCR on PDF...")
             chunks = await loop.run_in_executor(
@@ -954,7 +1130,9 @@ async def predictive_analysis(
             ocr_elapsed = time.time() - start_time
             logger.info(f"  OCR complete ({ocr_elapsed:.1f}s): {table_count} compact CSV chunks, ~{row_count} rows")
 
-            context = _build_predictive_context(chunks, filename_clean)
+            context, truncation_report = _build_predictive_context(chunks, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
 
         _update_progress(analysis_id, "extracting", language, f"{row_count} activities")
         logger.info(f"  Context built: {len(context)} chars")
@@ -962,17 +1140,28 @@ async def predictive_analysis(
         _update_progress(analysis_id, "analyzing", language, f"{row_count} activities")
 
         logger.info(f"  Running Nova Insight predictive analysis...")
-        predictive_result = await loop.run_in_executor(
-            _query_executor,
-            lambda: predictive_agent.analyze(
-                context=context,
-                user_query="Execute full two-phase analysis: detect ALL delayed activities (Phase 1) and produce decision support with root cause analysis, priority ranking, action recommendations, and resource assessment (Phase 2)",
-                language=language,
-                schedule_filename=filename_clean,
-                reference_date=reference_date,
-                data_format=data_format,
+        predictive_user_query = "Execute full two-phase analysis: detect ALL delayed activities (Phase 1) and produce decision support with root cause analysis, priority ranking, action recommendations, and resource assessment (Phase 2)"
+        if data_format == "nusf":
+            # TL-5.4 (brief §4, §17): deterministic facts + narrative-only
+            # model call. `schedule_obj` came from the nusf branch above.
+            predictive_result = await loop.run_in_executor(
+                _query_executor,
+                lambda: _run_nusf_predictive_analysis(
+                    schedule_obj, filename_clean, predictive_user_query, language, reference_date,
+                )
             )
-        )
+        else:
+            predictive_result = await loop.run_in_executor(
+                _query_executor,
+                lambda: predictive_agent.analyze(
+                    context=context,
+                    user_query=predictive_user_query,
+                    language=language,
+                    schedule_filename=filename_clean,
+                    reference_date=reference_date,
+                    data_format=data_format,
+                )
+            )
 
         predictive_json = predictive_result.get("predictive_json", None)
         predictive_text = predictive_result.get("predictive_insights", "")
@@ -1127,7 +1316,11 @@ async def predictive_analysis(
 
         _schedule_progress_cleanup(analysis_id)
 
-        return {
+        # TL-5.5 (brief §17, §28): when context completeness is PARTIAL,
+        # enumerate the omission in the response so the caller can act on
+        # it. PASS is omitted (nothing to report) and BLOCK never reaches
+        # this point (returned earlier via `_truncation_block_response`).
+        response_payload: Dict[str, Any] = {
             "analysis_id": analysis_id,
             "predictive_insights": predictive_text,
             "predictive_status": predictive_status,
@@ -1137,6 +1330,9 @@ async def predictive_analysis(
             "format": format,
             "processing_time_seconds": round(elapsed, 1)
         }
+        if truncation_report is not None and truncation_report.decision == "PARTIAL":
+            response_payload["context_completeness"] = truncation_report.to_dict()
+        return response_payload
 
     except Exception as e:
         logger.error(f"Predictive analysis failed: {e}")
@@ -1263,6 +1459,151 @@ async def compare_v5_graph(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _populate_health_audit_trail(
+    analysis_id: str,
+    session_id: str,
+    old_filename: str,
+    new_filename: str,
+    require_nusf: bool,
+    effective_data_format: str,
+    review_queue: list,
+    json_data: dict,
+    format: str,
+    language: str,
+    tables: list,
+    context_chunks: int,
+):
+    """Populate Brief §40 audit chain for a comparison health analysis."""
+    from src.trust.audit import AuditStage, audit_store
+    from src.trust.versioning import AnalysisVersions
+
+    trail = audit_store.get_or_create(analysis_id, project_id=analysis_id)
+
+    parser_ver = "nusf-pipeline-v2.1" if require_nusf else "v1-parser-v1.0"
+    applied_corrections = len(json_data.get("applied_mappings", []))
+    corrections_ver = f"corrections-v{applied_corrections}" if applied_corrections > 0 else "corrections:none"
+    model_ver = "deterministic-comparison-engine"
+    schedule_rev = f"old:{old_filename}|new:{new_filename}"
+
+    versions = AnalysisVersions(
+        parser=parser_ver,
+        matching_algorithm="nusf-matcher-v3.2",
+        analysis_engine="nusf-compare-engine-v1.4",
+        prompt="comparison-prompt-v1.0",
+        model=model_ver,
+        schedule_revision=schedule_rev,
+        manual_corrections=corrections_ver,
+    )
+    trail.set_versions(versions)
+
+    if not trail.has_stage(AuditStage.SCHEDULE_UPLOADED):
+        trail.add_entry(
+            AuditStage.SCHEDULE_UPLOADED,
+            {
+                "old_filename": old_filename,
+                "new_filename": new_filename,
+                "session_id": session_id,
+                "schedule_revision": schedule_rev,
+            },
+        )
+    if not trail.has_stage(AuditStage.PARSER_VERSION):
+        trail.add_entry(
+            AuditStage.PARSER_VERSION,
+            {
+                "parser": "nusf_pipeline" if require_nusf else "v1_parser",
+                "version": parser_ver,
+                "parser_version": parser_ver,
+                "format": effective_data_format,
+            },
+        )
+    if not trail.has_stage(AuditStage.OCR_PROVIDER):
+        trail.add_entry(
+            AuditStage.OCR_PROVIDER,
+            {
+                "provider": "azure_document_intelligence",
+                "api_version": "2024-02-29-preview",
+            },
+        )
+    if not trail.has_stage(AuditStage.CONFIDENCE_RESULTS):
+        trail.add_entry(
+            AuditStage.CONFIDENCE_RESULTS,
+            {
+                "review_queue_count": len(review_queue),
+                "unverified_activities_count": len(
+                    json_data.get("requires_verification_activities", [])
+                ),
+            },
+        )
+    if not trail.has_stage(AuditStage.MATCHES_GENERATED):
+        trail.add_entry(
+            AuditStage.MATCHES_GENERATED,
+            {
+                "algorithm_version": "nusf-matcher-v3.2",
+                "matching_algorithm": "nusf-matcher-v3.2",
+                "matched_count": len(
+                    json_data.get("matching_pairs", [])
+                    or json_data.get("changed_activities", [])
+                ),
+                "unmatched_count": len(
+                    json_data.get("requires_verification_activities", [])
+                ),
+            },
+        )
+    if not trail.has_stage(AuditStage.MANUAL_CORRECTIONS):
+        trail.add_entry(
+            AuditStage.MANUAL_CORRECTIONS,
+            {
+                "corrections_version": corrections_ver,
+                "applied_corrections_count": applied_corrections,
+            },
+        )
+    if not trail.has_stage(AuditStage.ANALYSIS_VERSION):
+        trail.add_entry(
+            AuditStage.ANALYSIS_VERSION,
+            {
+                "engine": "nusf-compare-engine-v1.4",
+                "engine_version": "nusf-compare-engine-v1.4",
+                "version": "nusf-compare-engine-v1.4",
+                "rules": "strict_error_gating",
+            },
+        )
+    if not trail.has_stage(AuditStage.AGENT_ANSWER):
+        trail.add_entry(
+            AuditStage.AGENT_ANSWER,
+            {
+                "status": json_data.get("project_health", {}).get(
+                    "status", "completed"
+                ),
+                "model": model_ver,
+                "model_version": model_ver,
+                "prompt": "comparison-prompt-v1.0",
+                "prompt_version": "comparison-prompt-v1.0",
+                "format": format,
+                "language": language,
+            },
+        )
+    if not trail.has_stage(AuditStage.EVIDENCE_USED):
+        trail.add_entry(
+            AuditStage.EVIDENCE_USED,
+            {
+                "tables": tables,
+                "context_chunks": context_chunks,
+            },
+        )
+
+    # TL-9.4 / Brief §38: continuous trust metrics computation and persistence
+    from src.trust.metrics import compute_live_metrics, metrics_store
+    metrics_snap = compute_live_metrics(
+        analysis_id=analysis_id,
+        comparison_data=json_data,
+        review_queue=review_queue,
+        project_id=analysis_id,
+    )
+    metrics_store.record(metrics_snap)
+
+    return trail
+
+
 @app.post("/version-1.0/health")
 async def version_1_health_dashboard(
     session_id: str = Form(...),
@@ -1358,10 +1699,47 @@ async def version_1_health_dashboard(
         elapsed = time.time() - start_time
         logger.info(f"=== VERSION 1.0 HEALTH COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
 
+        # TL-8.1 (brief §25): every review-item category derivable from
+        # what this endpoint already computed, at zero extra cost to the
+        # caller — `json_data` (already returned below) is the same dict
+        # `build_review_queue` reads from. `analysis_id` is the scoping
+        # key; the Flask backend persisting this response may re-key it
+        # under its own comparison id / company id, per
+        # `ReviewQueueStore`'s own "opaque key, caller decides" contract.
+        review_queue = [
+            dataclasses.asdict(item)
+            for item in build_review_queue(
+                analysis_id,
+                requires_verification_activities=json_data.get("requires_verification_activities", []),
+            )
+        ]
+
+        trail = _populate_health_audit_trail(
+            analysis_id=analysis_id,
+            session_id=session_id,
+            old_filename=old_filename,
+            new_filename=new_filename,
+            require_nusf=require_nusf,
+            effective_data_format=effective_data_format,
+            review_queue=review_queue,
+            json_data=json_data,
+            format=format,
+            language=language,
+            tables=tables,
+            context_chunks=result.get("context_chunks", 0),
+        )
+
+        from src.trust.metrics import metrics_store
+        latest_metrics = metrics_store.get_latest(project_id=analysis_id)
+
         return {
             "analysis_id": analysis_id,
             "response": response_text,
             "json_data": json_data,
+            "review_queue": review_queue,
+            "versions": trail.get_versions(),
+            "trust_metrics": latest_metrics.to_summary_dict() if latest_metrics else None,
+            "audit_trail": trail.reconstruct_answer(),
             "context_chunks": result.get("context_chunks", 0),
             "format": format,
             "version": "1.0",
@@ -1473,10 +1851,42 @@ async def version_1_kemp_health_dashboard(
         elapsed = time.time() - start_time
         logger.info(f"=== VERSION 1.0 KEMP HEALTH COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
 
+        # TL-8.1 (brief §25): see the sibling `/version-1.0/health` route
+        # for the full rationale — same zero-extra-cost derivation.
+        review_queue = [
+            dataclasses.asdict(item)
+            for item in build_review_queue(
+                analysis_id,
+                requires_verification_activities=json_data.get("requires_verification_activities", []),
+            )
+        ]
+
+        trail = _populate_health_audit_trail(
+            analysis_id=analysis_id,
+            session_id=session_id,
+            old_filename=old_filename,
+            new_filename=new_filename,
+            require_nusf=require_nusf,
+            effective_data_format=effective_data_format,
+            review_queue=review_queue,
+            json_data=json_data,
+            format=format,
+            language=language,
+            tables=tables,
+            context_chunks=result.get("context_chunks", 0),
+        )
+
+        from src.trust.metrics import metrics_store
+        latest_metrics = metrics_store.get_latest(project_id=analysis_id)
+
         return {
             "analysis_id": analysis_id,
             "response": response_text,
             "json_data": json_data,
+            "review_queue": review_queue,
+            "versions": trail.get_versions(),
+            "trust_metrics": latest_metrics.to_summary_dict() if latest_metrics else None,
+            "audit_trail": trail.reconstruct_answer(),
             "context_chunks": result.get("context_chunks", 0),
             "format": format,
             "version": "1.0-kemp",
@@ -1534,15 +1944,24 @@ async def version_1_predictive_dashboard(
         is_mpp_file = _is_mpp(filename)
         is_mspdi_file = _is_mspdi(filename)
 
+        # TL-5.5: `truncation_report` is set by the raw-text branches below.
+        # The NUSF branch builds a structured JSON context (no byte-budget
+        # gate applies), so it deliberately leaves the report as `None` —
+        # the response builder checks for that and omits
+        # `context_completeness` rather than publishing a meaningless one.
+        truncation_report: Optional[TruncationReport] = None
+
         if data_format == "nusf":
-            chunks = await loop.run_in_executor(
+            schedule_obj = await loop.run_in_executor(
                 _query_executor,
-                lambda: _process_file_to_nusf_chunks(file_bytes, filename),
+                lambda: _run_nusf_pipeline(file_bytes, filename),
             )
-            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
-            context = _build_predictive_context(chunks, filename_clean)
+            row_count = len(schedule_obj.activities)
+            context = f"[NUSF structured facts for {row_count} activities — see structured context, not a text dump]"
         elif is_csv_file:
-            context = _build_predictive_context_from_csv(file_bytes, filename_clean)
+            context, truncation_report = _build_predictive_context_from_csv(file_bytes, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
             row_count = context.count("\n")
         elif is_mpp_file:
             chunks = await loop.run_in_executor(
@@ -1550,40 +1969,56 @@ async def version_1_predictive_dashboard(
                 lambda: _process_mpp_to_chunks(file_bytes, filename),
             )
             row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
-            context = _build_predictive_context(chunks, filename_clean)
+            context, truncation_report = _build_predictive_context(chunks, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
         elif is_mspdi_file:
             chunks = await loop.run_in_executor(
                 _query_executor,
                 lambda: _process_mspdi_to_chunks(file_bytes, filename),
             )
             row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
-            context = _build_predictive_context(chunks, filename_clean)
+            context, truncation_report = _build_predictive_context(chunks, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
         else:
             chunks = await loop.run_in_executor(
                 _query_executor,
                 lambda: process_pdf_binary(file_bytes, filename),
             )
             row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
-            context = _build_predictive_context(chunks, filename_clean)
+            context, truncation_report = _build_predictive_context(chunks, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
 
         _update_progress(analysis_id, "extracting", language, f"{row_count} activities")
         _update_progress(analysis_id, "analyzing", language, f"{row_count} activities")
 
-        predictive_result = await loop.run_in_executor(
-            _query_executor,
-            lambda: predictive_agent.analyze(
-                context=context,
-                user_query=(
-                    "Execute Nova Insight Version 1.0 predictive analysis: produce concise decision support, "
-                    "preserve real activity IDs, include location/phase/trade evidence when visible, avoid invented "
-                    "forecast values, and rank the top actions a project manager should take now."
-                ),
-                language=language,
-                schedule_filename=filename_clean,
-                reference_date=reference_date,
-                data_format=data_format,
-            ),
+        v1_predictive_user_query = (
+            "Execute Nova Insight Version 1.0 predictive analysis: produce concise decision support, "
+            "preserve real activity IDs, include location/phase/trade evidence when visible, avoid invented "
+            "forecast values, and rank the top actions a project manager should take now."
         )
+        if data_format == "nusf":
+            # TL-5.4 (brief §4, §17): deterministic facts + narrative-only model call.
+            predictive_result = await loop.run_in_executor(
+                _query_executor,
+                lambda: _run_nusf_predictive_analysis(
+                    schedule_obj, filename_clean, v1_predictive_user_query, language, reference_date,
+                ),
+            )
+        else:
+            predictive_result = await loop.run_in_executor(
+                _query_executor,
+                lambda: predictive_agent.analyze(
+                    context=context,
+                    user_query=v1_predictive_user_query,
+                    language=language,
+                    schedule_filename=filename_clean,
+                    reference_date=reference_date,
+                    data_format=data_format,
+                ),
+            )
 
         predictive_json = predictive_result.get("predictive_json", None)
         predictive_status = predictive_result.get("status", "error")
@@ -1622,7 +2057,11 @@ async def version_1_predictive_dashboard(
         elapsed = time.time() - start_time
         logger.info(f"=== VERSION 1.0 PREDICTIVE COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
 
-        return {
+        # TL-5.5 (brief §17, §28): when context completeness is PARTIAL,
+        # enumerate the omission in the response so the caller can act on
+        # it. PASS is omitted (nothing to report) and BLOCK never reaches
+        # this point (returned earlier via `_truncation_block_response`).
+        response_payload: Dict[str, Any] = {
             "analysis_id": analysis_id,
             "response": response_text,
             "predictive_status": predictive_status,
@@ -1633,6 +2072,9 @@ async def version_1_predictive_dashboard(
             "version": "1.0",
             "processing_time_seconds": round(elapsed, 1),
         }
+        if truncation_report is not None and truncation_report.decision == "PARTIAL":
+            response_payload["context_completeness"] = truncation_report.to_dict()
+        return response_payload
 
     except Exception as e:
         logger.error(f"Version 1.0 predictive dashboard failed: {e}", exc_info=True)
@@ -1690,15 +2132,24 @@ async def version_1_kemp_predictive_dashboard(
         is_mpp_file = _is_mpp(filename)
         is_mspdi_file = _is_mspdi(filename)
 
+        # TL-5.5: `truncation_report` is set by the raw-text branches below.
+        # The NUSF branch builds a structured JSON context (no byte-budget
+        # gate applies), so it deliberately leaves the report as `None` —
+        # the response builder checks for that and omits
+        # `context_completeness` rather than publishing a meaningless one.
+        truncation_report: Optional[TruncationReport] = None
+
         if data_format == "nusf":
-            chunks = await loop.run_in_executor(
+            schedule_obj = await loop.run_in_executor(
                 _query_executor,
-                lambda: _process_file_to_nusf_chunks(file_bytes, filename),
+                lambda: _run_nusf_pipeline(file_bytes, filename),
             )
-            row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
-            context = _build_predictive_context(chunks, filename_clean)
+            row_count = len(schedule_obj.activities)
+            context = f"[NUSF structured facts for {row_count} activities — see structured context, not a text dump]"
         elif is_csv_file:
-            context = _build_predictive_context_from_csv(file_bytes, filename_clean)
+            context, truncation_report = _build_predictive_context_from_csv(file_bytes, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
             row_count = context.count("\n")
         elif is_mpp_file:
             chunks = await loop.run_in_executor(
@@ -1706,40 +2157,56 @@ async def version_1_kemp_predictive_dashboard(
                 lambda: _process_mpp_to_chunks(file_bytes, filename),
             )
             row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
-            context = _build_predictive_context(chunks, filename_clean)
+            context, truncation_report = _build_predictive_context(chunks, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
         elif is_mspdi_file:
             chunks = await loop.run_in_executor(
                 _query_executor,
                 lambda: _process_mspdi_to_chunks(file_bytes, filename),
             )
             row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
-            context = _build_predictive_context(chunks, filename_clean)
+            context, truncation_report = _build_predictive_context(chunks, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
         else:
             chunks = await loop.run_in_executor(
                 _query_executor,
                 lambda: process_pdf_binary(file_bytes, filename),
             )
             row_count = sum(c.get("metadata", {}).get("row_count", 0) for c in chunks)
-            context = _build_predictive_context(chunks, filename_clean)
+            context, truncation_report = _build_predictive_context(chunks, filename_clean)
+            if truncation_report.decision == "BLOCK":
+                return _truncation_block_response(truncation_report, analysis_id, language, filename)
 
         _update_progress(analysis_id, "extracting", language, f"{row_count} activities")
         _update_progress(analysis_id, "analyzing", language, f"{row_count} activities")
 
-        predictive_result = await loop.run_in_executor(
-            _query_executor,
-            lambda: predictive_agent.analyze(
-                context=context,
-                user_query=(
-                    "Execute Nova Insight Version 1.0 predictive analysis: produce concise decision support, "
-                    "preserve real activity IDs, include location/phase/trade evidence when visible, avoid invented "
-                    "forecast values, and rank the top actions a project manager should take now."
-                ),
-                language=language,
-                schedule_filename=filename_clean,
-                reference_date=reference_date,
-                data_format=data_format,
-            ),
+        v1_predictive_user_query = (
+            "Execute Nova Insight Version 1.0 predictive analysis: produce concise decision support, "
+            "preserve real activity IDs, include location/phase/trade evidence when visible, avoid invented "
+            "forecast values, and rank the top actions a project manager should take now."
         )
+        if data_format == "nusf":
+            # TL-5.4 (brief §4, §17): deterministic facts + narrative-only model call.
+            predictive_result = await loop.run_in_executor(
+                _query_executor,
+                lambda: _run_nusf_predictive_analysis(
+                    schedule_obj, filename_clean, v1_predictive_user_query, language, reference_date,
+                ),
+            )
+        else:
+            predictive_result = await loop.run_in_executor(
+                _query_executor,
+                lambda: predictive_agent.analyze(
+                    context=context,
+                    user_query=v1_predictive_user_query,
+                    language=language,
+                    schedule_filename=filename_clean,
+                    reference_date=reference_date,
+                    data_format=data_format,
+                ),
+            )
 
         predictive_json = predictive_result.get("predictive_json", None)
         predictive_status = predictive_result.get("status", "error")
@@ -1778,7 +2245,11 @@ async def version_1_kemp_predictive_dashboard(
         elapsed = time.time() - start_time
         logger.info(f"=== VERSION 1.0 KEMP PREDICTIVE COMPLETE [{analysis_id}] ({elapsed:.1f}s) ===")
 
-        return {
+        # TL-5.5 (brief §17, §28): when context completeness is PARTIAL,
+        # enumerate the omission in the response so the caller can act on
+        # it. PASS is omitted (nothing to report) and BLOCK never reaches
+        # this point (returned earlier via `_truncation_block_response`).
+        response_payload: Dict[str, Any] = {
             "analysis_id": analysis_id,
             "response": response_text,
             "predictive_status": predictive_status,
@@ -1789,6 +2260,9 @@ async def version_1_kemp_predictive_dashboard(
             "version": "1.0-kemp",
             "processing_time_seconds": round(elapsed, 1),
         }
+        if truncation_report is not None and truncation_report.decision == "PARTIAL":
+            response_payload["context_completeness"] = truncation_report.to_dict()
+        return response_payload
 
     except Exception as e:
         logger.error(f"Version 1.0 Kemp predictive dashboard failed: {e}", exc_info=True)
@@ -1826,10 +2300,219 @@ async def version_1_localize_dashboard(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Version 1.0 localization failed: {e}", exc_info=True)
+
+# ── Source Document & Viewer Routes (TL-9.1, Brief §24) ──────────────────────
+@app.post("/source-document/highlight")
+async def highlight_source_document(
+    page_number: int = Form(...),
+    bounding_box: Optional[str] = Form(None),
+    pdf_file: UploadFile = File(...),
+):
+    """Render a target page of a source PDF with bounding box highlight."""
+    try:
+        from src.trust.source_viewer import highlight_pdf_page
+        pdf_bytes = await pdf_file.read()
+        bbox = None
+        if bounding_box:
+            try:
+                if isinstance(bounding_box, str):
+                    s = bounding_box.strip()
+                    if s.startswith("[") and s.endswith("]"):
+                        s = s[1:-1]
+                    bbox = [float(x.strip()) for x in s.split(",") if x.strip()]
+                elif isinstance(bounding_box, list):
+                    bbox = [float(x) for x in bounding_box]
+            except Exception as parse_err:
+                logger.warning(f"Could not parse bounding_box {bounding_box!r}: {parse_err}")
+                bbox = None
+        png_bytes = highlight_pdf_page(pdf_bytes, page_number, bbox)
+        return Response(content=png_bytes, media_type="image/png")
+    except (ValueError, IndexError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Highlight source document failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── NUSF v2 Routes ───────────────────────────────────────────────────────────
+@app.get("/source-document/{session_id}/{schedule_role}/page/{page_number}")
+async def get_session_source_document_page(
+    session_id: str,
+    schedule_role: str,
+    page_number: int,
+    bbox: Optional[str] = None,
+):
+    """Render a highlighted page from a cached session schedule."""
+    if schedule_role not in ("old", "new", "single"):
+        raise HTTPException(status_code=400, detail="Invalid schedule_role: must be old, new, or single")
+
+    cache_key = f"{session_id}:{schedule_role}"
+    pdf_bytes = _source_file_cache.get(cache_key)
+    if not pdf_bytes:
+        raise HTTPException(status_code=404, detail="Source document not found in session cache")
+
+    if not pdf_bytes.startswith(b"%PDF"):
+        # Non-paginated documents degrade honestly (Do-not rule: never fabricate page numbers)
+        raise HTTPException(status_code=400, detail="Source document is not a paginated PDF")
+
+    parsed_bbox = None
+    if bbox:
+        try:
+            if isinstance(bbox, str):
+                s = bbox.strip()
+                if s.startswith("[") and s.endswith("]"):
+                    s = s[1:-1]
+                parsed_bbox = [float(x.strip()) for x in s.split(",") if x.strip()]
+            elif isinstance(bbox, list):
+                parsed_bbox = [float(x) for x in bbox]
+        except Exception:
+            parsed_bbox = None
+
+    from src.trust.source_viewer import highlight_pdf_page
+    try:
+        png_bytes = highlight_pdf_page(pdf_bytes, page_number, parsed_bbox)
+        return Response(content=png_bytes, media_type="image/png")
+    except (ValueError, IndexError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/source-document/activity-detail")
+async def get_activity_detail_endpoint(payload: dict):
+    """Return Brief §24 target activity detail data and rendered HTML."""
+    from src.trust.source_viewer import build_activity_detail, render_activity_detail_panel
+    activity = payload.get("activity", {})
+    old_activity = payload.get("old_activity")
+    match_result = payload.get("match_result")
+    new_provenance = payload.get("new_provenance")
+    old_provenance = payload.get("old_provenance")
+    language = payload.get("language", "en")
+
+    detail = build_activity_detail(
+        activity,
+        old_activity,
+        match_result,
+        new_provenance=new_provenance,
+        old_provenance=old_provenance,
+        language=language,
+    )
+    html = render_activity_detail_panel(detail, language=language)
+    return {
+        "success": True,
+        "detail": detail.model_dump(),
+        "html": html,
+    }
+
+
+# ── Audit Trail Routes (TL-9.2, Brief §40) ───────────────────────────────────
+@app.get("/audit-trail/{analysis_id}")
+async def get_audit_trail_endpoint(analysis_id: str):
+    """Retrieve Brief §40 audit reconstruction trail for an analysis."""
+    from src.trust.audit import audit_store
+
+    trail = audit_store.get(analysis_id)
+    if not trail:
+        raise HTTPException(status_code=404, detail="Audit trail not found")
+    return {
+        "success": True,
+        "is_complete": trail.is_complete(),
+        "integrity_verified": trail.verify_integrity(),
+        "trail": trail.model_dump(),
+        "reconstruction": trail.reconstruct_answer(),
+    }
+
+
+# ── Trust Metrics KPIs Routes (TL-9.4, Brief §38, §49) ──────────────────────
+@app.get("/trust-metrics/latest")
+async def get_latest_metrics_endpoint(
+    project_id: Optional[str] = None,
+    company_id: Optional[str] = None,
+):
+    """Retrieve the latest Brief §38 trust KPIs snapshot."""
+    from src.trust.metrics import metrics_store
+    snap = metrics_store.get_latest(project_id=project_id, company_id=company_id)
+    if not snap:
+        raise HTTPException(status_code=404, detail="No metrics recorded yet")
+    return {"success": True, "snapshot": snap.to_summary_dict()}
+
+
+@app.get("/trust-metrics/trend/{metric_name}")
+async def get_metrics_trend_endpoint(
+    metric_name: str,
+    project_id: Optional[str] = None,
+    company_id: Optional[str] = None,
+    limit: int = 50,
+):
+    """Query time-series trend points for a specific KPI (Brief §49)."""
+    from src.trust.metrics import ALL_TEN_BRIEF_38_METRICS, metrics_store
+    if metric_name not in ALL_TEN_BRIEF_38_METRICS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown metric '{metric_name}'. Valid metrics: {list(ALL_TEN_BRIEF_38_METRICS)}",
+        )
+    trend = metrics_store.get_metric_trend(
+        metric_name=metric_name,
+        project_id=project_id,
+        company_id=company_id,
+        limit=limit,
+    )
+    return {
+        "success": True,
+        "metric_name": metric_name,
+        "points_count": len(trend),
+        "trend": trend,
+    }
+
+
+@app.get("/trust-metrics/history")
+async def get_metrics_history_endpoint(
+    project_id: Optional[str] = None,
+    company_id: Optional[str] = None,
+    limit: int = 50,
+):
+    """Retrieve metrics snapshot history matching tenant filters."""
+    from src.trust.metrics import metrics_store
+    history = metrics_store.get_history(
+        project_id=project_id, company_id=company_id, limit=limit
+    )
+    return {
+        "success": True,
+        "count": len(history),
+        "snapshots": [s.to_summary_dict() for s in history],
+    }
+
+
+# ── Trust Center Routes (TL-9.5, Brief §43) ──────────────────────────────────
+@app.get("/trust-center/summary")
+async def get_trust_center_summary_endpoint(
+    company_id: Optional[str] = None,
+    locale: str = "da",
+):
+    """Retrieve Brief §43 Trust Center overview with defined denominators."""
+    from src.trust.trust_center import build_trust_center_overview
+    overview = build_trust_center_overview(company_id=company_id, locale=locale)
+    return {
+        "success": True,
+        "trust_center": overview.model_dump(),
+    }
+
+
+@app.get("/trust-center/report")
+async def get_trust_center_report_endpoint(
+    company_id: Optional[str] = None,
+    locale: str = "da",
+    format: str = "markdown",
+):
+    """Export the Brief §43 Verification Report in Markdown or JSON format."""
+    from src.trust.trust_center import build_trust_center_overview, generate_verification_report
+    overview = build_trust_center_overview(company_id=company_id, locale=locale)
+    report = generate_verification_report(overview, format=format)
+    if format.lower() == "markdown":
+        return Response(content=report, media_type="text/markdown; charset=utf-8")
+    return {
+        "success": True,
+        "report": report,
+    }
+
+
 # Dependency injection keeps ingestion/ free of src/ imports.
 # All downstream objects (vector_store_manager, predictive_agent, etc.) are
 # wired here in src/main.py and passed into the router at startup.

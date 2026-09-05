@@ -1,0 +1,16 @@
+{
+  "brief_ref": "§12 (Level 3 partial match / grouped matching), §35 ('Dæk_0..Dæk_25' shape)",
+  "description": "Five identically-named 'Daek' activities at the same location in the old revision, six in the new (one added). ID column is a bare positional 'Id' (not durable), so identity for this group can only come from the name+location+date-order matching path (nusf_compare_engine._resolve_activity_matches greedy nearest-date pairing within a name+location group).",
+  "kind": "pair",
+  "format": "CSV",
+  "reference_date": "01-06-2026",
+  "requires_azure": false,
+  "expected": {
+    "old_activity_count": 5,
+    "new_activity_count": 6,
+    "added": ["Daek"],
+    "removed": [],
+    "behind_schedule_count": 0
+  },
+  "notes": "All 5 old rows pair with 5 of the 6 new rows by ascending (start, finish) date-distance within the group; the 6th new row (genuinely new, latest dates) is reported as added rather than colliding with a leftover old row. added==['Daek'] and removed==[] together are the pass/fail signal here -- a regression in the grouped-matching logic would either wrongly report removed activities or silently mis-pair two unrelated 'Daek' rows."
+}

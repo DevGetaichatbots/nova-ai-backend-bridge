@@ -1,0 +1,474 @@
+{
+  "fixture_id": "01_clean_durable_ids",
+  "health": {
+    "comparison": {
+      "action_recommendations": [],
+      "changed_activities": {
+        "added": [
+          "BYGH - Concrete Pour Slab 3"
+        ],
+        "changes": [
+          {
+            "activity": "EL - Cable Tray Installation",
+            "area": "Project / Building A / 1.",
+            "change_type": "Finish Date",
+            "duration": "80",
+            "finish_date": "20-06-2026",
+            "floor": "1. Floor",
+            "id": "A-100",
+            "location": {
+              "area": "Project / Building A / 1.",
+              "floor": "1. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 1.",
+            "new": "20-06-2026",
+            "new_duration": "80",
+            "new_finish": "20-06-2026",
+            "new_start": "01-06-2026",
+            "old": "10-06-2026",
+            "old_duration": "80",
+            "old_finish": "10-06-2026",
+            "old_start": "01-06-2026",
+            "phase": "",
+            "resource": "1. Floor / Project / Building A / 1.",
+            "source_id": "A-100",
+            "start_date": "01-06-2026",
+            "trade": "EL",
+            "trade_code": "EL"
+          },
+          {
+            "activity": "EL - Cable Tray Installation",
+            "area": "Project / Building A / 1.",
+            "change_type": "Progress",
+            "duration": "80",
+            "finish_date": "20-06-2026",
+            "floor": "1. Floor",
+            "id": "A-100",
+            "location": {
+              "area": "Project / Building A / 1.",
+              "floor": "1. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / 1.",
+            "new": "20.0",
+            "new_duration": "80",
+            "new_finish": "20-06-2026",
+            "new_start": "01-06-2026",
+            "old": "60.0",
+            "old_duration": "80",
+            "old_finish": "10-06-2026",
+            "old_start": "01-06-2026",
+            "phase": "",
+            "resource": "1. Floor / Project / Building A / 1.",
+            "source_id": "A-100",
+            "start_date": "01-06-2026",
+            "trade": "EL",
+            "trade_code": "EL"
+          },
+          {
+            "activity": "VVS - Pipe Installation",
+            "area": "Project / Building A / Basement",
+            "change_type": "Duration",
+            "duration": "88",
+            "finish_date": "12-06-2026",
+            "floor": "Basement",
+            "id": "A-101",
+            "location": {
+              "area": "Project / Building A / Basement",
+              "floor": "Basement",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / Basement",
+            "new": "88",
+            "new_duration": "88",
+            "new_finish": "12-06-2026",
+            "new_start": "03-06-2026",
+            "old": "72",
+            "old_duration": "72",
+            "old_finish": "12-06-2026",
+            "old_start": "03-06-2026",
+            "phase": "",
+            "resource": "Basement / Project / Building A / Basement",
+            "source_id": "A-101",
+            "start_date": "03-06-2026",
+            "trade": "VVS",
+            "trade_code": "VVS"
+          },
+          {
+            "activity": "VVS - Pipe Installation",
+            "area": "Project / Building A / Basement",
+            "change_type": "Progress",
+            "duration": "88",
+            "finish_date": "12-06-2026",
+            "floor": "Basement",
+            "id": "A-101",
+            "location": {
+              "area": "Project / Building A / Basement",
+              "floor": "Basement",
+              "phase": ""
+            },
+            "location_path": "Project / Building A / Basement",
+            "new": "90.0",
+            "new_duration": "88",
+            "new_finish": "12-06-2026",
+            "new_start": "03-06-2026",
+            "old": "40.0",
+            "old_duration": "72",
+            "old_finish": "12-06-2026",
+            "old_start": "03-06-2026",
+            "phase": "",
+            "resource": "Basement / Project / Building A / Basement",
+            "source_id": "A-101",
+            "start_date": "03-06-2026",
+            "trade": "VVS",
+            "trade_code": "VVS"
+          },
+          {
+            "activity": "VENT - Duct Installation",
+            "area": "Project / Building B / 2.",
+            "change_type": "Start Date",
+            "duration": "80",
+            "finish_date": "15-06-2026",
+            "floor": "2. Floor",
+            "id": "A-102",
+            "location": {
+              "area": "Project / Building B / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building B / 2.",
+            "new": "07-06-2026",
+            "new_duration": "80",
+            "new_finish": "15-06-2026",
+            "new_start": "07-06-2026",
+            "old": "05-06-2026",
+            "old_duration": "80",
+            "old_finish": "15-06-2026",
+            "old_start": "05-06-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building B / 2.",
+            "source_id": "A-102",
+            "start_date": "07-06-2026",
+            "trade": "VENT",
+            "trade_code": "VENT"
+          }
+        ],
+        "removed": [
+          "ARK - Facade Cleaning"
+        ]
+      },
+      "critical_path_activities": [],
+      "delay_drivers": [
+        {
+          "affected_count": 1,
+          "description": "1 activities are behind expected progress in Project / Building A / 1..",
+          "driver": "Project / Building A / 1. behind"
+        }
+      ],
+      "executive_summary": {
+        "added_activities": 1,
+        "ahead_of_schedule_count": 1,
+        "behind_schedule_count": 1,
+        "confirmed_activities_count": 3,
+        "critical_count": 0,
+        "critical_path_count": 0,
+        "data_quality_warning": "",
+        "overall_progress_pct": 31.2,
+        "point_of_no_return_count": 0,
+        "project_health": "Yellow",
+        "recommended_action": "",
+        "requires_verification_count": 1,
+        "selected_activities": 4,
+        "trade_counts": {
+          "ALL": 4,
+          "ARK": 0,
+          "BYGH": 1,
+          "EL": 1,
+          "VENT": 1,
+          "VVS": 1
+        }
+      },
+      "filter_options": {
+        "areas": [
+          "Project / Building A / 1.",
+          "Project / Building A / Basement",
+          "Project / Building B / 2."
+        ],
+        "floors": [
+          "1. Floor",
+          "2. Floor",
+          "Basement"
+        ],
+        "phases": []
+      },
+      "not_started_overdue": [],
+      "point_of_no_return": [
+        {
+          "activity": "EL - Cable Tray Installation",
+          "actual_pct": 20.0,
+          "area": "Project / Building A / 1.",
+          "assessment": "HIGH RISK",
+          "classification": "Yellow",
+          "duration": "80",
+          "expected_pct": 36.8,
+          "floor": "1. Floor",
+          "id": "A-100",
+          "location": {
+            "area": "Project / Building A / 1.",
+            "floor": "1. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 1.",
+          "phase": "",
+          "recommendation": "Recover EL - Cable Tray Installation before the finish date.",
+          "remaining_time": "12 days",
+          "resource": "1. Floor / Project / Building A / 1.",
+          "source_id": "A-100",
+          "trade": "EL",
+          "trade_code": "EL",
+          "variance_pct": -16.8
+        }
+      ],
+      "progress_vs_expected": [
+        {
+          "activity": "EL - Cable Tray Installation",
+          "actual_pct": 20.0,
+          "area": "Project / Building A / 1.",
+          "duration": "80",
+          "expected_pct": 36.8,
+          "finish_date": "20-06-2026",
+          "floor": "1. Floor",
+          "id": "A-100",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building A / 1.",
+            "floor": "1. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 1.",
+          "phase": "",
+          "resource": "1. Floor / Project / Building A / 1.",
+          "source_id": "A-100",
+          "start_date": "01-06-2026",
+          "status": "behind",
+          "trade": "EL",
+          "trade_code": "EL",
+          "variance_pct": -16.8
+        },
+        {
+          "activity": "VVS - Pipe Installation",
+          "actual_pct": 90.0,
+          "area": "Project / Building A / Basement",
+          "duration": "88",
+          "expected_pct": 55.6,
+          "finish_date": "12-06-2026",
+          "floor": "Basement",
+          "id": "A-101",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building A / Basement",
+            "floor": "Basement",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / Basement",
+          "phase": "",
+          "resource": "Basement / Project / Building A / Basement",
+          "source_id": "A-101",
+          "start_date": "03-06-2026",
+          "status": "ahead",
+          "trade": "VVS",
+          "trade_code": "VVS",
+          "variance_pct": 34.4
+        },
+        {
+          "activity": "VENT - Duct Installation",
+          "actual_pct": 15.0,
+          "area": "Project / Building B / 2.",
+          "duration": "80",
+          "expected_pct": 12.5,
+          "finish_date": "15-06-2026",
+          "floor": "2. Floor",
+          "id": "A-102",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building B / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building B / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building B / 2.",
+          "source_id": "A-102",
+          "start_date": "07-06-2026",
+          "status": "on_schedule",
+          "trade": "VENT",
+          "trade_code": "VENT",
+          "variance_pct": 2.5
+        }
+      ],
+      "requires_verification_activities": [
+        {
+          "activity": "BYGH - Concrete Pour Slab 3",
+          "area": "Project / Building D / 3.",
+          "candidates": [],
+          "duration": "64",
+          "floor": "3. Floor",
+          "id": "A-104",
+          "level": "L5_NO_RELIABLE_MATCH",
+          "location": {
+            "area": "Project / Building D / 3.",
+            "floor": "3. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building D / 3.",
+          "match_key": "bygh - concrete pour slab 3|project / building d / 3.",
+          "method": "unmatched",
+          "phase": "",
+          "reason": "Nova found insufficient evidence to reliably match this activity between the two schedules. The activity has therefore been excluded from confirmed comparison results.",
+          "resource": "3. Floor / Project / Building D / 3.",
+          "source_id": "A-104",
+          "trade": "BYGH",
+          "trade_code": "BYGH"
+        }
+      ],
+      "stage_mismatch": [
+        {
+          "activity": "EL - Cable Tray Installation",
+          "actual_pct": 20.0,
+          "area": "Project / Building A / 1.",
+          "difference_pct": -16.8,
+          "duration": "80",
+          "expected_pct": 36.8,
+          "floor": "1. Floor",
+          "id": "A-100",
+          "location": {
+            "area": "Project / Building A / 1.",
+            "floor": "1. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 1.",
+          "phase": "",
+          "resource": "1. Floor / Project / Building A / 1.",
+          "source_id": "A-100",
+          "status": "Mismatch",
+          "trade": "EL",
+          "trade_code": "EL"
+        },
+        {
+          "activity": "VVS - Pipe Installation",
+          "actual_pct": 90.0,
+          "area": "Project / Building A / Basement",
+          "difference_pct": 34.4,
+          "duration": "88",
+          "expected_pct": 55.6,
+          "floor": "Basement",
+          "id": "A-101",
+          "location": {
+            "area": "Project / Building A / Basement",
+            "floor": "Basement",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / Basement",
+          "phase": "",
+          "resource": "Basement / Project / Building A / Basement",
+          "source_id": "A-101",
+          "status": "Mismatch",
+          "trade": "VVS",
+          "trade_code": "VVS"
+        },
+        {
+          "activity": "VENT - Duct Installation",
+          "actual_pct": 15.0,
+          "area": "Project / Building B / 2.",
+          "difference_pct": 2.5,
+          "duration": "80",
+          "expected_pct": 12.5,
+          "floor": "2. Floor",
+          "id": "A-102",
+          "location": {
+            "area": "Project / Building B / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building B / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building B / 2.",
+          "source_id": "A-102",
+          "status": "OK",
+          "trade": "VENT",
+          "trade_code": "VENT"
+        }
+      ],
+      "summary_notes": {
+        "added_count": 1,
+        "current_data_date": "08 June 2026",
+        "delayed_activities": 1,
+        "finished_activities": 0,
+        "mean_expected_pct_all": 28.8,
+        "overall_progress_delta": -10.0,
+        "overall_progress_new_pct": 31.2,
+        "overall_progress_old_pct": 41.2,
+        "previous_data_date": "06 June 2026",
+        "removed_count": 1,
+        "reporting_period_new": "08-06-2026",
+        "reporting_period_old": "",
+        "requires_verification_count": 1,
+        "total_activities": 4
+      },
+      "versions": {
+        "analysis_engine": "nusf-compare-engine-v1.4",
+        "manual_corrections": "corrections:none",
+        "matching_algorithm": "nusf-matcher-v3.2",
+        "model": "deterministic-comparison-engine",
+        "parser": "nusf-pipeline-v2.1",
+        "prompt": "comparison-prompt-v1.0",
+        "schedule_revision": "08-06-2026"
+      }
+    },
+    "fixture_id": "01_clean_durable_ids",
+    "new_pipeline_error": null,
+    "new_schedule": {
+      "activity_count": 4,
+      "issue_count": 3,
+      "issue_levels": [
+        "WARNING",
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    },
+    "old_pipeline_error": null,
+    "old_schedule": {
+      "activity_count": 4,
+      "issue_count": 4,
+      "issue_levels": [
+        "WARNING",
+        "WARNING",
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    }
+  },
+  "predictive": {
+    "fixture_id": "01_clean_durable_ids",
+    "predictive_facts": {
+      "critical_count": 0,
+      "delayed_areas": [
+        "Project / Building A / 1."
+      ],
+      "delayed_count": 1,
+      "point_of_no_return_red_count": 0,
+      "point_of_no_return_yellow_count": 1
+    }
+  }
+}

@@ -1,0 +1,273 @@
+{
+  "fixture_id": "04_id_changed_same_activity",
+  "health": {
+    "comparison": {
+      "action_recommendations": [],
+      "changed_activities": {
+        "added": [],
+        "changes": [
+          {
+            "activity": "EL - Panel Wiring",
+            "area": "Project / Building NK / 2.",
+            "change_type": "Progress",
+            "duration": "64",
+            "finish_date": "09-06-2026",
+            "floor": "2. Floor",
+            "id": "A198",
+            "location": {
+              "area": "Project / Building NK / 2.",
+              "floor": "2. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building NK / 2.",
+            "new": "70.0",
+            "new_duration": "64",
+            "new_finish": "09-06-2026",
+            "new_start": "01-06-2026",
+            "old": "40.0",
+            "old_duration": "64",
+            "old_finish": "09-06-2026",
+            "old_start": "01-06-2026",
+            "phase": "",
+            "resource": "2. Floor / Project / Building NK / 2.",
+            "source_id": "A198",
+            "start_date": "01-06-2026",
+            "trade": "EL",
+            "trade_code": "EL"
+          },
+          {
+            "activity": "VVS - Riser Installation",
+            "area": "Project / Building NK / 3.",
+            "change_type": "Progress",
+            "duration": "64",
+            "finish_date": "10-06-2026",
+            "floor": "3. Floor",
+            "id": "B245",
+            "location": {
+              "area": "Project / Building NK / 3.",
+              "floor": "3. Floor",
+              "phase": ""
+            },
+            "location_path": "Project / Building NK / 3.",
+            "new": "80.0",
+            "new_duration": "64",
+            "new_finish": "10-06-2026",
+            "new_start": "02-06-2026",
+            "old": "30.0",
+            "old_duration": "64",
+            "old_finish": "10-06-2026",
+            "old_start": "02-06-2026",
+            "phase": "",
+            "resource": "3. Floor / Project / Building NK / 3.",
+            "source_id": "B245",
+            "start_date": "02-06-2026",
+            "trade": "VVS",
+            "trade_code": "VVS"
+          }
+        ],
+        "removed": []
+      },
+      "critical_path_activities": [],
+      "delay_drivers": [],
+      "executive_summary": {
+        "added_activities": 0,
+        "ahead_of_schedule_count": 2,
+        "behind_schedule_count": 0,
+        "confirmed_activities_count": 2,
+        "critical_count": 0,
+        "critical_path_count": 0,
+        "data_quality_warning": "",
+        "overall_progress_pct": 75.0,
+        "point_of_no_return_count": 0,
+        "project_health": "Green",
+        "recommended_action": "",
+        "requires_verification_count": 0,
+        "selected_activities": 2,
+        "trade_counts": {
+          "ALL": 2,
+          "ARK": 0,
+          "BYGH": 0,
+          "EL": 1,
+          "VENT": 0,
+          "VVS": 1
+        }
+      },
+      "filter_options": {
+        "areas": [
+          "Project / Building NK / 2.",
+          "Project / Building NK / 3."
+        ],
+        "floors": [
+          "2. Floor",
+          "3. Floor"
+        ],
+        "phases": []
+      },
+      "not_started_overdue": [],
+      "point_of_no_return": [],
+      "progress_vs_expected": [
+        {
+          "activity": "EL - Panel Wiring",
+          "actual_pct": 70.0,
+          "area": "Project / Building NK / 2.",
+          "duration": "64",
+          "expected_pct": 50.0,
+          "finish_date": "09-06-2026",
+          "floor": "2. Floor",
+          "id": "A198",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building NK / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building NK / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building NK / 2.",
+          "source_id": "A198",
+          "start_date": "01-06-2026",
+          "status": "ahead",
+          "trade": "EL",
+          "trade_code": "EL",
+          "variance_pct": 20.0
+        },
+        {
+          "activity": "VVS - Riser Installation",
+          "actual_pct": 80.0,
+          "area": "Project / Building NK / 3.",
+          "duration": "64",
+          "expected_pct": 37.5,
+          "finish_date": "10-06-2026",
+          "floor": "3. Floor",
+          "id": "B245",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building NK / 3.",
+            "floor": "3. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building NK / 3.",
+          "phase": "",
+          "resource": "3. Floor / Project / Building NK / 3.",
+          "source_id": "B245",
+          "start_date": "02-06-2026",
+          "status": "ahead",
+          "trade": "VVS",
+          "trade_code": "VVS",
+          "variance_pct": 42.5
+        }
+      ],
+      "requires_verification_activities": [],
+      "stage_mismatch": [
+        {
+          "activity": "EL - Panel Wiring",
+          "actual_pct": 70.0,
+          "area": "Project / Building NK / 2.",
+          "difference_pct": 20.0,
+          "duration": "64",
+          "expected_pct": 50.0,
+          "floor": "2. Floor",
+          "id": "A198",
+          "location": {
+            "area": "Project / Building NK / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building NK / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building NK / 2.",
+          "source_id": "A198",
+          "status": "Mismatch",
+          "trade": "EL",
+          "trade_code": "EL"
+        },
+        {
+          "activity": "VVS - Riser Installation",
+          "actual_pct": 80.0,
+          "area": "Project / Building NK / 3.",
+          "difference_pct": 42.5,
+          "duration": "64",
+          "expected_pct": 37.5,
+          "floor": "3. Floor",
+          "id": "B245",
+          "location": {
+            "area": "Project / Building NK / 3.",
+            "floor": "3. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building NK / 3.",
+          "phase": "",
+          "resource": "3. Floor / Project / Building NK / 3.",
+          "source_id": "B245",
+          "status": "Mismatch",
+          "trade": "VVS",
+          "trade_code": "VVS"
+        }
+      ],
+      "summary_notes": {
+        "added_count": 0,
+        "current_data_date": "05 June 2026",
+        "delayed_activities": 0,
+        "finished_activities": 0,
+        "mean_expected_pct_all": 35.0,
+        "overall_progress_delta": 40.0,
+        "overall_progress_new_pct": 75.0,
+        "overall_progress_old_pct": 35.0,
+        "previous_data_date": "04 June 2026",
+        "removed_count": 0,
+        "reporting_period_new": "05-06-2026",
+        "reporting_period_old": "",
+        "requires_verification_count": 0,
+        "total_activities": 2
+      },
+      "versions": {
+        "analysis_engine": "nusf-compare-engine-v1.4",
+        "manual_corrections": "corrections:none",
+        "matching_algorithm": "nusf-matcher-v3.2",
+        "model": "deterministic-comparison-engine",
+        "parser": "nusf-pipeline-v2.1",
+        "prompt": "comparison-prompt-v1.0",
+        "schedule_revision": "05-06-2026"
+      }
+    },
+    "fixture_id": "04_id_changed_same_activity",
+    "new_pipeline_error": null,
+    "new_schedule": {
+      "activity_count": 2,
+      "issue_count": 2,
+      "issue_levels": [
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    },
+    "old_pipeline_error": null,
+    "old_schedule": {
+      "activity_count": 2,
+      "issue_count": 2,
+      "issue_levels": [
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    }
+  },
+  "predictive": {
+    "fixture_id": "04_id_changed_same_activity",
+    "predictive_facts": {
+      "critical_count": 0,
+      "delayed_areas": [],
+      "delayed_count": 0,
+      "point_of_no_return_red_count": 0,
+      "point_of_no_return_yellow_count": 0
+    }
+  }
+}

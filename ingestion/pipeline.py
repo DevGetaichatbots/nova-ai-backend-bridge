@@ -34,6 +34,9 @@ import ingestion.extractors.mspdi as _  # noqa: F401 — triggers self-registrat
 
 logger = logging.getLogger(__name__)
 
+# Brief §41 versioning: parser dimension (TL-9.3)
+PARSER_VERSION = "nusf-pipeline-v2.1"
+
 
 class PipelineError(Exception):
     """Raised when the pipeline cannot proceed (unsupported format, validation ERROR, etc.)."""

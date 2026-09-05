@@ -12,6 +12,22 @@ LEVEL_INFO = "INFO"
 CAT_STRUCTURAL = "STRUCTURAL"
 CAT_LOGICAL = "LOGICAL"
 CAT_QUALITY = "QUALITY"
+CAT_SOURCE_CONFLICT = "SOURCE_CONFLICT"
+
+
+def rule_source_conflict(
+    activity_id: str | None,
+    conflict_type: str,
+    message: str,
+    conflicting_values: dict[str, str] | None = None,
+) -> ValidationIssue:
+    return ValidationIssue(
+        level=LEVEL_WARNING,
+        category=CAT_SOURCE_CONFLICT,
+        activity_id=activity_id,
+        message=f"Rule Source Conflict ({conflict_type}): {message}",
+        remediation="Resolve conflicting source data values.",
+    )
 
 
 def rule_101_date_logic(activity_id: str, start: str, finish: str) -> ValidationIssue:
@@ -27,7 +43,13 @@ def rule_101_date_logic(activity_id: str, start: str, finish: str) -> Validation
 def rule_102_circular(activity_ids: list) -> ValidationIssue:
     ids_str = " → ".join(activity_ids)
     return ValidationIssue(
-        level=LEVEL_WARNING,
+        # ERROR — a circular dependency makes the schedule's critical-path
+        # graph structurally unsafe to analyse. Promoting this to ERROR
+        # (from the previous WARNING, which contradicted the engine
+        # docstring) means `validation_passed = False` for any schedule
+        # with a cycle, which is the gating brief §27/§29 require.
+        # See `DECISIONS.md` ADR-007 (TL-0.5).
+        level=LEVEL_ERROR,
         category=CAT_LOGICAL,
         activity_id=activity_ids[0] if activity_ids else None,
         message=f"Rule 102: Circular dependency detected: {ids_str}",

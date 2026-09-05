@@ -1,0 +1,5 @@
+Entydigt Id;Opgavenavn;Startdato;Slutdato;Varighed;% Færdigt;Ansvarlig;Område;Etage
+A-100;EL - Cable Tray Installation;01-06-2026;20-06-2026;80;20;Electrical;Project / Building A / 1.;1. Floor
+A-101;VVS - Pipe Installation;03-06-2026;12-06-2026;88;90;Plumbing;Project / Building A / Basement;Basement
+A-102;VENT - Duct Installation;07-06-2026;15-06-2026;80;15;Ventilation;Project / Building B / 2.;2. Floor
+A-104;BYGH - Concrete Pour Slab 3;09-06-2026;18-06-2026;64;0;Civil;Project / Building D / 3.;3. Floor

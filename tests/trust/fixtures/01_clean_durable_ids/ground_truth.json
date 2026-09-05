@@ -1,0 +1,21 @@
+{
+  "brief_ref": "§12 (Level 1 exact-ID match), §15 (deterministic calculations), §35 (easy path)",
+  "description": "Clean CSV pair with a durable 'Entydigt Id' column on both revisions. One activity's finish date slips and its progress drops (behind); another's progress and duration both change (ahead); a third's start date shifts but stays within tolerance (on_schedule); one activity is removed, one is added. This is the baseline 'everything works' case every later phase must keep working.",
+  "kind": "pair",
+  "format": "CSV",
+  "reference_date": "08-06-2026",
+  "requires_azure": false,
+  "expected": {
+    "old_activity_count": 4,
+    "new_activity_count": 4,
+    "added": ["BYGH - Concrete Pour Slab 3"],
+    "removed": ["ARK - Facade Cleaning"],
+    "changed_count": 5,
+    "behind_schedule_count": 1,
+    "ahead_of_schedule_count": 1,
+    "critical_count": 0,
+    "point_of_no_return_count": 0,
+    "project_health": "Yellow"
+  },
+  "notes": "changed_count reflects 4 change rows (Finish Date, Progress, Duration, Progress) plus a Start Date change on the untouched-status VENT activity — no activity's identity is ambiguous here, so this fixture is a pure control for Phases 1-4."
+}

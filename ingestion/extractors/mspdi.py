@@ -164,10 +164,29 @@ class MspdiExtractor(BaseExtractor):
 
         logger.info(f"[{filename}] MSPDI extracted: {len(rows)} task rows")
 
+        cells = [
+            [
+                {
+                    "content": row[col_idx] if col_idx < len(row) else "",
+                    "extraction_method": "mspdi_field",
+                    "ocr_confidence": None,
+                    "page_number": None,
+                    "bounding_box": None,
+                    "spans": None,
+                    "source_field": self.HEADERS[col_idx],
+                    "source_row": row_idx,
+                    "source_document": filename,
+                }
+                for col_idx in range(len(self.HEADERS))
+            ]
+            for row_idx, row in enumerate(rows)
+        ]
+
         return {
             "source_system": self.source_system(),
             "headers": list(self.HEADERS),
             "rows": rows,
+            "cells": cells,
             "file_name": filename,
             "raw_text": raw_text,
         }

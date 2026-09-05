@@ -1,0 +1,283 @@
+{
+  "fixture_id": "07_data_quality_conflicts",
+  "health": {
+    "comparison": {
+      "action_recommendations": [
+        {
+          "actions": [
+            "Review manpower",
+            "Confirm blockers",
+            "Update recovery plan"
+          ],
+          "activity": "EL - Duplicate Id Different Name",
+          "area": "Project / Building A / 1.",
+          "duration": "32",
+          "floor": "1. Floor",
+          "id": "C-01",
+          "issue": "EL - Duplicate Id Different Name is behind expected progress.",
+          "location": {
+            "area": "Project / Building A / 1.",
+            "floor": "1. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 1.",
+          "phase": "",
+          "resource": "1. Floor / Project / Building A / 1.",
+          "source_id": "C-01",
+          "trade": "EL",
+          "trade_code": "EL"
+        }
+      ],
+      "changed_activities": {
+        "added": [],
+        "changes": [],
+        "removed": []
+      },
+      "critical_path_activities": [],
+      "delay_drivers": [
+        {
+          "affected_count": 1,
+          "description": "1 activities are behind expected progress in Project / Building A / 1..",
+          "driver": "Project / Building A / 1. behind"
+        }
+      ],
+      "executive_summary": {
+        "added_activities": 0,
+        "ahead_of_schedule_count": 1,
+        "behind_schedule_count": 1,
+        "confirmed_activities_count": 2,
+        "critical_count": 0,
+        "critical_path_count": 0,
+        "data_quality_warning": "",
+        "overall_progress_pct": 25.0,
+        "point_of_no_return_count": 1,
+        "project_health": "Red",
+        "recommended_action": "EL - Duplicate Id Different Name is behind expected progress.",
+        "requires_verification_count": 0,
+        "selected_activities": 2,
+        "trade_counts": {
+          "ALL": 2,
+          "ARK": 0,
+          "BYGH": 0,
+          "EL": 1,
+          "VENT": 0,
+          "VVS": 1
+        }
+      },
+      "filter_options": {
+        "areas": [
+          "Project / Building A / 1.",
+          "Project / Building A / 2."
+        ],
+        "floors": [
+          "1. Floor",
+          "2. Floor"
+        ],
+        "phases": []
+      },
+      "not_started_overdue": [],
+      "point_of_no_return": [
+        {
+          "activity": "EL - Duplicate Id Different Name",
+          "actual_pct": 20.0,
+          "area": "Project / Building A / 1.",
+          "assessment": "POINT OF NO RETURN",
+          "classification": "Red",
+          "duration": "32",
+          "expected_pct": 50.0,
+          "floor": "1. Floor",
+          "id": "C-01",
+          "location": {
+            "area": "Project / Building A / 1.",
+            "floor": "1. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 1.",
+          "phase": "",
+          "recommendation": "Recover EL - Duplicate Id Different Name before the finish date.",
+          "remaining_time": "2 days",
+          "resource": "1. Floor / Project / Building A / 1.",
+          "source_id": "C-01",
+          "trade": "EL",
+          "trade_code": "EL",
+          "variance_pct": -30.0
+        }
+      ],
+      "progress_vs_expected": [
+        {
+          "activity": "EL - Duplicate Id Different Name",
+          "actual_pct": 20.0,
+          "area": "Project / Building A / 1.",
+          "duration": "32",
+          "expected_pct": 50.0,
+          "finish_date": "06-06-2026",
+          "floor": "1. Floor",
+          "id": "C-01",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building A / 1.",
+            "floor": "1. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 1.",
+          "phase": "",
+          "resource": "1. Floor / Project / Building A / 1.",
+          "source_id": "C-01",
+          "start_date": "02-06-2026",
+          "status": "behind",
+          "trade": "EL",
+          "trade_code": "EL",
+          "variance_pct": -30.0
+        },
+        {
+          "activity": "VVS - Inverted Dates Task",
+          "actual_pct": 30.0,
+          "area": "Project / Building A / 2.",
+          "duration": "40",
+          "expected_pct": 14.3,
+          "finish_date": "10-06-2026",
+          "floor": "2. Floor",
+          "id": "C-02",
+          "late_flag": false,
+          "location": {
+            "area": "Project / Building A / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building A / 2.",
+          "source_id": "C-02",
+          "start_date": "03-06-2026",
+          "status": "ahead",
+          "trade": "VVS",
+          "trade_code": "VVS",
+          "variance_pct": 15.7
+        }
+      ],
+      "requires_verification_activities": [],
+      "stage_mismatch": [
+        {
+          "activity": "EL - Duplicate Id Different Name",
+          "actual_pct": 20.0,
+          "area": "Project / Building A / 1.",
+          "difference_pct": -30.0,
+          "duration": "32",
+          "expected_pct": 50.0,
+          "floor": "1. Floor",
+          "id": "C-01",
+          "location": {
+            "area": "Project / Building A / 1.",
+            "floor": "1. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 1.",
+          "phase": "",
+          "resource": "1. Floor / Project / Building A / 1.",
+          "source_id": "C-01",
+          "status": "Mismatch",
+          "trade": "EL",
+          "trade_code": "EL"
+        },
+        {
+          "activity": "VVS - Inverted Dates Task",
+          "actual_pct": 30.0,
+          "area": "Project / Building A / 2.",
+          "difference_pct": 15.7,
+          "duration": "40",
+          "expected_pct": 14.3,
+          "floor": "2. Floor",
+          "id": "C-02",
+          "location": {
+            "area": "Project / Building A / 2.",
+            "floor": "2. Floor",
+            "phase": ""
+          },
+          "location_path": "Project / Building A / 2.",
+          "phase": "",
+          "resource": "2. Floor / Project / Building A / 2.",
+          "source_id": "C-02",
+          "status": "Mismatch",
+          "trade": "VVS",
+          "trade_code": "VVS"
+        }
+      ],
+      "summary_notes": {
+        "added_count": 0,
+        "current_data_date": "04 June 2026",
+        "delayed_activities": 1,
+        "finished_activities": 0,
+        "mean_expected_pct_all": 25.0,
+        "overall_progress_delta": 0.0,
+        "overall_progress_new_pct": 25.0,
+        "overall_progress_old_pct": 25.0,
+        "previous_data_date": "04 June 2026",
+        "removed_count": 0,
+        "reporting_period_new": "01-06-2026",
+        "reporting_period_old": "",
+        "requires_verification_count": 0,
+        "total_activities": 2
+      },
+      "versions": {
+        "analysis_engine": "nusf-compare-engine-v1.4",
+        "manual_corrections": "corrections:none",
+        "matching_algorithm": "nusf-matcher-v3.2",
+        "model": "deterministic-comparison-engine",
+        "parser": "nusf-pipeline-v2.1",
+        "prompt": "comparison-prompt-v1.0",
+        "schedule_revision": "01-06-2026"
+      }
+    },
+    "fixture_id": "07_data_quality_conflicts",
+    "new_pipeline_error": null,
+    "new_schedule": {
+      "activity_count": 3,
+      "issue_count": 5,
+      "issue_levels": [
+        "WARNING",
+        "WARNING",
+        "WARNING",
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104",
+        "Rule Source Conflict (date_swap)",
+        "Rule Source Conflict (same_id_different_names)"
+      ],
+      "logic_warning_count": 1,
+      "validation_passed": true
+    },
+    "old_pipeline_error": null,
+    "old_schedule": {
+      "activity_count": 3,
+      "issue_count": 5,
+      "issue_levels": [
+        "WARNING",
+        "WARNING",
+        "WARNING",
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104",
+        "Rule Source Conflict (date_swap)",
+        "Rule Source Conflict (same_id_different_names)"
+      ],
+      "logic_warning_count": 1,
+      "validation_passed": true
+    }
+  },
+  "predictive": {
+    "fixture_id": "07_data_quality_conflicts",
+    "predictive_facts": {
+      "critical_count": 0,
+      "delayed_areas": [
+        "Project / Building A / 1."
+      ],
+      "delayed_count": 1,
+      "point_of_no_return_red_count": 1,
+      "point_of_no_return_yellow_count": 0
+    }
+  }
+}

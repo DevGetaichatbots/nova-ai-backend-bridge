@@ -1,0 +1,18 @@
+{
+  "brief_ref": "§27 (conflict detection: duplicate IDs, same-ID-different-name, progress >100%, date inversion), §7/§29 (validation gating)",
+  "description": "Deliberately contains three conflicts brief §27 lists as things Nova should detect: (1) two rows share Entydigt Id 'C-01' but have different names, (2) one row's progress is entered as 150%, (3) one row's start date is after its finish date. Old and new revisions are identical on purpose -- the point of this fixture is to snapshot how ingestion handles bad source data today, not to test comparison.",
+  "kind": "pair",
+  "format": "CSV",
+  "reference_date": "01-06-2026",
+  "requires_azure": false,
+  "expected": {
+    "old_activity_count": 3,
+    "new_activity_count": 3,
+    "old_logic_warning_count": 1,
+    "old_issue_rules": ["Rule 104", "Rule Source Conflict (date_swap)", "Rule Source Conflict (same_id_different_names)"],
+    "old_validation_passed": true,
+    "comparison_selected_activities": 2,
+    "comparison_progress_actual_pcts": {"EL - Duplicate Id Different Name": 20.0, "VVS - Inverted Dates Task": 30.0}
+  },
+  "notes": "This fixture exists to document three real gaps in the current pipeline, none of which is a harness bug -- Phase 0 records the baseline, later phases (mainly TL-4.5 conflict detection) are expected to change these numbers on purpose: (1) DUPLICATE ID SILENTLY DROPS DATA -- both C-01 rows survive ingestion (old/new_activity_count=3) but nusf_compare_engine's identity-based dedup keeps only the LAST row per identity, so 'EL - Overprogressed Task' vanishes from the comparison entirely (comparison_selected_activities=2, not 3) with no warning. (2) >100% PROGRESS IS SILENTLY CLAMPED -- the 150 entered for 'EL - Overprogressed Task' is clamped to 100.0 during normalization (ingestion.normalization.engine._pct_to_float) before any validation rule sees it, so no issue is ever raised for it (this also means its clamped value never appears in the comparison output at all, since point (1) drops the row first). (3) RULE 101 IS EFFECTIVELY DEAD -- the inverted start/finish on 'VVS - Inverted Dates Task' is auto-swapped during normalization, so by the time ValidationEngine._rule_101 runs, planned_start<=planned_finish always holds and the rule can never fire; only has_logic_warning (old_logic_warning_count=1) records that a swap happened. TL-0.5 owns fixing the rule-level docstring/code contradiction; this fixture is what its 'before' snapshot should look like."
+}

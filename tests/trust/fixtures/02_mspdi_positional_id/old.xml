@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project xmlns="http://schemas.microsoft.com/project">
+  <Tasks>
+    <Task>
+      <UID>10</UID>
+      <ID>1</ID>
+      <Name>Excavation Trench 4</Name>
+      <Start>2026-06-01T08:00:00</Start>
+      <Finish>2026-06-08T17:00:00</Finish>
+      <Duration>PT56H0M0S</Duration>
+      <PercentComplete>50</PercentComplete>
+    </Task>
+    <Task>
+      <UID>11</UID>
+      <ID>2</ID>
+      <Name>Formwork Wall Section</Name>
+      <Start>2026-06-03T08:00:00</Start>
+      <Finish>2026-06-11T17:00:00</Finish>
+      <Duration>PT64H0M0S</Duration>
+      <PercentComplete>10</PercentComplete>
+    </Task>
+    <Task>
+      <UID>12</UID>
+      <ID>3</ID>
+      <Name>Rebar Placement Section</Name>
+      <Start>2026-06-05T08:00:00</Start>
+      <Finish>2026-06-09T17:00:00</Finish>
+      <Duration>PT32H0M0S</Duration>
+      <PercentComplete>20</PercentComplete>
+    </Task>
+  </Tasks>
+</Project>

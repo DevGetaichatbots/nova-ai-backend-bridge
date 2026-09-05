@@ -1,0 +1,15 @@
+{
+  "fixture_id": "08_empty_headers_only",
+  "health": {
+    "comparison": null,
+    "fixture_id": "08_empty_headers_only",
+    "new_pipeline_error": null,
+    "new_schedule": null,
+    "old_pipeline_error": "No data could be extracted from 'old.csv'. Raw headers from OCR: ['Entydigt Id', 'Opgavenavn', 'Startdato', 'Slutdato', 'Varighed', '% Færdigt', 'Ansvarlig', 'Område', 'Etage']. Data rows extracted: 0. Columns recognized: ['entydigt_id', 'name', 'planned_start', 'planned_finish', 'duration', 'percent_complete', 'discipline', 'area', 'floor']. Column map: {'entydigt_id': 'Entydigt Id', 'name': 'Opgavenavn', 'planned_start': 'Startdato', 'planned_finish': 'Slutdato', 'duration': 'Varighed', 'percent_complete': '% Færdigt', 'discipline': 'Ansvarlig', 'area': 'Område', 'floor': 'Etage'}.",
+    "old_schedule": null
+  },
+  "predictive": {
+    "fixture_id": "08_empty_headers_only",
+    "predictive_facts": null
+  }
+}

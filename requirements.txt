@@ -16,6 +16,7 @@ playwright>=1.49.0
 psycopg2-binary>=2.9.11
 pydantic>=2.12.5
 pydantic-settings>=2.0.0
+pytest>=8.0.0
 python-dotenv>=1.2.1
 python-multipart>=0.0.22
 requests>=2.32.5

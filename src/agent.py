@@ -3,6 +3,14 @@ from openai.types.chat import ChatCompletionMessageParam
 from src.config import settings
 from src.vector_store import vector_store_manager
 from src.database import save_chat_message, get_chat_history
+from src.trust.response_contract import (
+    AgentResponse,
+    GatePolicy,
+    detect_no_answer,
+    is_causal_question,
+    validate_agent_response,
+)
+from src.trust.vocabulary import TrustState
 from typing import List
 import json
 import logging
@@ -1729,14 +1737,55 @@ Keep your response concise and helpful."""
         save_chat_message(session_id, "user", user_query)
         save_chat_message(session_id, "assistant", assistant_response)
         logger.info(f"  Chat history saved")
-        
+
+        # TL-6.5 (brief §18, §42): detect no-answer for the chat path. The
+        # chat path has no structured fact store (unlike predictive), so
+        # "the data cannot answer this" is signalled by the question
+        # itself being a causal/unanswerable pattern (`is_causal_question`)
+        # — and the brief's exact point: schedule data records *what*
+        # and *when*, never *why*. The detector returns a
+        # `NoAnswerInfo` that `validate_agent_response` renders as the
+        # three-part reassuring text. We never fabricate a causal
+        # explanation for an unanswerable question — that's brief §18's
+        # own invariant and AC4 of this task.
+        no_answer = detect_no_answer(
+            question=user_query,
+            facts=[],  # chat path has no verified facts in scope
+            unverifiable_claims=[user_query] if is_causal_question(user_query) else [],
+            language=language,
+        )
+
+        # TL-6.1 (brief §33, §34): wrap the raw chat answer in the agent
+        # response contract and run it through the render gate. Additive —
+        # `response` is unchanged for existing callers. Unlike
+        # `predictive_agent`, this endpoint has no structured fact set to
+        # draw `supporting_facts` from (free-text retrieval + free-text
+        # answer, no JSON schema); `confidence_state` is therefore the most
+        # conservative `UNVERIFIED`, not `REVIEW` — nothing here has been
+        # checked against anything yet. `unverified_claims` stays empty
+        # pending `TL-6.2`/`TL-6.3` (claim extraction and verification do
+        # not exist yet); this wiring exists so those tasks only need to
+        # populate the list, not invent the pipe it travels through.
+        agent_response = validate_agent_response(
+            AgentResponse(
+                answer=assistant_response,
+                source_references=list(table_names),
+                confidence_state=TrustState.UNVERIFIED,
+                no_answer=no_answer,
+            ),
+            policy=GatePolicy.QUALIFY,
+            language=language,
+        )
+
         return {
-            "response": assistant_response,
+            "response": agent_response.text,
             "sources": list(table_names),
             "context_chunks": len(context.split("Chunk")),
             "is_comparison": is_comparison,
             "total_data_rows": getattr(self, '_last_total_data_rows', 0),
-            "diff_data": getattr(self, '_last_diff_data', None)
+            "diff_data": getattr(self, '_last_diff_data', None),
+            "agent_response": agent_response,
+            "is_no_answer": no_answer is not None,
         }
 
 

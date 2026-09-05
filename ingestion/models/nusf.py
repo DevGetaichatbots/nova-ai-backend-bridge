@@ -23,13 +23,87 @@ class Provenance(BaseModel):
     source_field: str = Field(..., description="Original raw column header or field name")
     source_row: Optional[int] = Field(None, description="Zero-indexed row number from raw extraction")
     is_ai_inferred: bool = Field(False, description="Flag indicating if the field required AI extraction fallback")
-    confidence: float = Field(1.0, ge=0.0, le=1.0, description="Confidence metric for parsed values")
+    column_mapping_confidence: float = Field(
+        1.0, ge=0.0, le=1.0,
+        description=(
+            "Confidence score for header/column recognition mapping. "
+            "Disambiguated in TL-1.6 from value-level OCR confidence (ocr_confidence)."
+        )
+    )
+
+    # --- TL-1.1: extended evidence fields (additive, D3). All optional with
+    # safe defaults so existing construction sites remain valid. See
+    # changes/trust-layer/plan/phase-1-provenance.md (TL-1.1) and ADR-009.
+    # ---
+    raw_value: Optional[str] = Field(
+        None,
+        description=(
+            "Exactly what was read from the source, before any normalization. "
+            "For OCR-derived fields this is the cell text before date/number parsing."
+        ),
+    )
+    normalized_value: Optional[str] = Field(
+        None,
+        description=(
+            "What the raw value was turned into by normalization (date parsing, "
+            "number cleanup, etc.). `None` when normalization was a no-op."
+        ),
+    )
+    ocr_confidence: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Per-cell OCR confidence for the originating cell, derived in TL-1.2 "
+            "as the *minimum* of the constituent word confidences (not the mean — "
+            "a single misread digit in a date ruins the field). `None` is a load-"
+            "bearing sentinel meaning 'not OCR-derived'; it must never be coerced "
+            "to 1.0 or any other default. The brief's Do-not rule for TL-1.2 makes "
+            "the 'unknown = 1.0' failure mode the worst possible outcome."
+        ),
+    )
+    page_number: Optional[int] = Field(
+        None,
+        ge=1,
+        description=(
+            "Page number in the source document where the originating cell was "
+            "read. `None` when not OCR-derived or when page information was not "
+            "captured."
+        ),
+    )
+    bounding_box: Optional[list] = Field(
+        None,
+        description=(
+            "Polygon coordinates for the originating cell as a flat list of "
+            "floats (Azure's `boundingRegions[].polygon` shape). `None` when not "
+            "OCR-derived or when geometry was not captured."
+        ),
+    )
+    source_document: Optional[str] = Field(
+        None,
+        description=(
+            "Original filename or URI of the source document the value was read "
+            "from. `None` when not captured (legacy paths pre-TL-1.1)."
+        ),
+    )
+    extraction_method: str = Field(
+        "unknown",
+        description=(
+            "How this value was obtained. Canonical values: `ocr_table`, "
+            "`ocr_text_layer`, `csv_cell`, `excel_cell`, `mpp_field`, "
+            "`mspdi_field`, `ai_inferred`, `derived`. `unknown` means the field "
+            "has not yet been classified — TL-1.5 will retire the catch-all "
+            "fallback path that produces it."
+        ),
+    )
 
 
 class Activity(BaseModel):
-    internal_id: str = Field(..., description="Stable, globally unique ID (derived UUID)")
-    source_id: str = Field(..., description="Unchanged native ID from original format")
+    internal_id: str = Field(..., description="Stable, globally unique ID (derived UUID) — internal handle, never displayed")
+    source_id: Optional[str] = Field(None, description="Unchanged native ID from original format, or None if no ID column existed in source")
     stable_key: Optional[str] = Field(None, description="Stable comparison key for old/new matching")
+    match_key: Optional[str] = Field(None, description="Internal join key, may be composite, NEVER displayed")
+    match_method: Optional[str] = Field(None, description="Method used to establish match identity: verified_source_id, stable_key, name_location_composite, positional")
     name: str = Field(..., description="Activity description/name")
 
     wbs_code: Optional[str] = Field(None, description="Work Breakdown Structure hierarchical identifier")
@@ -82,7 +156,8 @@ class ValidationIssue(BaseModel):
 
 
 class ScheduleMetadata(BaseModel):
-    nusf_version: str = Field("1.0", description="Target schema iteration version")
+    nusf_version: str = Field("2.0", description="Target schema iteration version")
+    parser_version: str = Field("nusf-pipeline-v2.1", description="Parser engine version used for extraction")
     project_name: str = Field(..., description="Extracted project title")
     source_system: str = Field(..., description="Original platform, e.g. PDF | CSV")
     source_filename: str = Field(..., description="Native filename uploaded")

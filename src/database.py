@@ -281,6 +281,94 @@ def create_chat_memory_table():
             conn.commit()
 
 
+def create_activity_provenance_table():
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS activity_provenance (
+                    id SERIAL PRIMARY KEY,
+                    table_name VARCHAR(255) NOT NULL,
+                    internal_id VARCHAR(255) NOT NULL,
+                    provenance JSONB NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    CONSTRAINT uq_table_internal UNIQUE (table_name, internal_id)
+                );
+
+                CREATE INDEX IF NOT EXISTS activity_provenance_table_idx
+                ON activity_provenance(table_name);
+            """)
+            conn.commit()
+
+
+def save_activity_provenance(table_name: str, activities: list):
+    """
+    Persist provenance dict for each activity into activity_provenance table.
+    table_name: vector table name (e.g. vs_session_file)
+    activities: list of Activity models or dicts containing internal_id and provenance.
+    """
+    if not activities:
+        return
+    create_activity_provenance_table()
+    safe_name = sanitize_table_name(table_name)
+    batch_values = []
+    for act in activities:
+        internal_id = act.internal_id if hasattr(act, "internal_id") else act.get("internal_id")
+        prov = act.provenance if hasattr(act, "provenance") else act.get("provenance", {})
+        if isinstance(prov, dict):
+            prov_json = {
+                k: (v.model_dump() if hasattr(v, "model_dump") else v)
+                for k, v in prov.items()
+            }
+        else:
+            prov_json = {}
+        import json
+        batch_values.append((safe_name, internal_id, json.dumps(prov_json)))
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            execute_values(
+                cur,
+                """
+                INSERT INTO activity_provenance (table_name, internal_id, provenance)
+                VALUES %s
+                ON CONFLICT (table_name, internal_id) DO UPDATE
+                SET provenance = EXCLUDED.provenance
+                """,
+                batch_values,
+                template="(%s, %s, %s::jsonb)",
+                page_size=100
+            )
+            conn.commit()
+
+
+def load_provenance(table_name: str, internal_id: str = None) -> dict:
+    """
+    Load provenance for a vector store table.
+    If internal_id is provided, returns Dict[field_name, ProvenanceDict] for that activity.
+    If internal_id is None, returns Dict[internal_id, Dict[field_name, ProvenanceDict]] for all activities in table.
+    If table has no provenance recorded, returns empty dict (D3 backward compatibility).
+    """
+    create_activity_provenance_table()
+    safe_name = sanitize_table_name(table_name)
+    with get_db_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            if internal_id:
+                cur.execute(
+                    "SELECT provenance FROM activity_provenance WHERE table_name = %s AND internal_id = %s",
+                    (safe_name, internal_id)
+                )
+                row = cur.fetchone()
+                return row["provenance"] if row and row["provenance"] else {}
+            else:
+                cur.execute(
+                    "SELECT internal_id, provenance FROM activity_provenance WHERE table_name = %s",
+                    (safe_name,)
+                )
+                rows = cur.fetchall()
+                return {r["internal_id"]: r["provenance"] for r in rows}
+
+
+
 def save_session_metadata(
     session_id: str,
     old_filename: str,

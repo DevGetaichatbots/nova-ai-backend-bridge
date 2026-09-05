@@ -152,6 +152,13 @@ def _activity_row(item: dict, *, task_key: str = "activity") -> dict:
         "status": _clean(item.get("status") or item.get("priority") or item.get("assessment")),
         "days_overdue": _si(item.get("days_overdue"), 0),
         "priority": _clean(item.get("priority")),
+        # TL-7.5: carried through so the "Why?" affordance on a priority
+        # flag can cite the actual deterministic basis for it
+        # (`compute_predictive_facts`, TL-5.2) instead of nothing. Absent
+        # on non-predictive callers (health tables) — harmless, `_why_*`
+        # helpers only read these for the "delayed" table variant.
+        "is_root_cause": bool(item.get("is_root_cause") or False),
+        "blocked_by_id": _clean(item.get("blocked_by_id")),
     }
 
 
@@ -337,6 +344,136 @@ def _predictive_graph(delayed_rows: list[dict], total: int, delayed_count: int) 
     }
 
 
+# ============================================================================
+# TL-7.2 — Project-level trust breakdown (brief §22, §23; resolves Q-4)
+# ============================================================================
+# Brief §22 wants the top-of-dashboard answer to "can we trust this
+# dashboard?" before the PM has to ask: N verified / N require review / N
+# could not be reliably matched, out of M total. Brief §23 requires that
+# M be a denominator the user can be told in one sentence.
+#
+# Q-4 resolution (recorded here and in `changes/trust-layer/plan/PROGRESS.md`):
+# M = the number of activities Nova actually examined in this comparison —
+# `es["selected_activities"]`, the exact count already shown to the user
+# as the "Activities Analyzed" KPI (`adapt_health_dashboard`'s own
+# `total`). Never a union of per-table row counts (which double-counts an
+# activity appearing in more than one view, e.g. both "behind schedule"
+# and "critical path"), and never an internal processing count the user
+# has no way to cross-check against something already on screen.
+#
+# N/R/U are not a new policy invented here — they are Phase 3's own
+# match-level classification, already computed and already carried on
+# every row of `requires_verification_activities`
+# (`src/experimental/nusf_compare_engine.py`), read through
+# `to_trust_state` (`src/trust/matching.py`, ADR-015): L1 -> VERIFIED,
+# L2/L3 -> REVIEW, L4/L5 -> UNVERIFIED. Every activity NOT in that list
+# already passed Phase 3's comparison cleanly
+# (`es["confirmed_activities_count"]`), which is exactly the VERIFIED
+# count once the review/unresolved rows are excluded from the total —
+# `test_project_trust_indicator.py` pins this as a consistency check
+# (`verified == confirmed_activities_count`), not just a derived number
+# that happens to match.
+
+
+def compute_project_trust_breakdown(data: dict[str, Any], es: dict[str, Any]) -> dict[str, Any]:
+    """TL-7.2: the health/comparison dashboard's project-level trust
+    breakdown. See the module-level note above for the Q-4 denominator
+    resolution and the N/R/U classification source.
+    """
+    from src.trust.matching import MatchLevel, to_trust_state
+    from src.trust.vocabulary import TrustState
+
+    total = _si(es.get("selected_activities"), 0)
+    requires_verification = data.get("requires_verification_activities", []) or []
+
+    review = 0
+    unresolved = 0
+    for row in requires_verification:
+        try:
+            level = MatchLevel(row.get("level"))
+        except ValueError:
+            # An unrecognized level string is not evidence of a clean
+            # match — treat it as the most conservative bucket rather
+            # than silently dropping it from the count or assuming it
+            # is fine (brief's own "unknown is never assumed verified").
+            level = MatchLevel.L5_NO_RELIABLE_MATCH
+        if to_trust_state(level) == TrustState.REVIEW:
+            review += 1
+        else:
+            unresolved += 1
+
+    verified = max(0, total - review - unresolved)
+
+    return {
+        "total": total,
+        "verified": verified,
+        "review": review,
+        "unresolved": unresolved,
+    }
+
+
+def compute_project_trust_breakdown_predictive(insight: dict[str, Any]) -> dict[str, Any]:
+    """TL-7.2: the predictive dashboard's variant.
+
+    Unlike the comparison dashboard, the predictive pipeline analyzes one
+    schedule and does not (yet) carry a per-activity match-level
+    classification at this layer — only a verified/unresolved split at
+    the delayed-activity level (`insight_data.unverified_delayed_count`,
+    `TL-5.4`/`build_response_facts`). Rather than invent a REVIEW bucket
+    with no real signal behind it, `review` is honestly `0` here; the
+    tooltip (`trust_denominator_tt_predictive`) states the methodology
+    plainly rather than let a `0` read as "nothing needs review" when the
+    true statement is "not measured at this granularity yet."
+    """
+    total = _si(insight.get("total_activities"), 0)
+    delayed = _si(insight.get("delayed_count"), 0)
+    unresolved = _si(insight.get("unverified_delayed_count"), 0)
+    verified = max(0, total - unresolved)
+
+    return {
+        "total": total,
+        "verified": verified,
+        "review": 0,
+        "unresolved": unresolved,
+        "delayed": delayed,
+    }
+
+
+def compute_feature_confidences(compare_data: dict[str, Any]) -> dict[str, str]:
+    """Compute 5 feature-level trust confidences (TL-4.4 / brief §30)."""
+    from src.trust.engine import TrustAssessment, TrustEngine
+    from src.trust.vocabulary import TrustState
+
+    engine = TrustEngine()
+
+    # 1. Schedule Parsing
+    parsing_assessment = TrustAssessment(state=TrustState.VERIFIED, reason="Clean schedule parse", weakest_link="parsing")
+
+    # 2. Activity Matching
+    requires_verif = compare_data.get("requires_verification_count", 0)
+    matching_state = TrustState.REVIEW if requires_verif > 0 else TrustState.VERIFIED
+    matching_assessment = TrustAssessment(state=matching_state, reason=f"Requires verif count: {requires_verif}", weakest_link="matching")
+
+    # 3. Progress Comparison
+    progress_assessment = TrustAssessment(state=TrustState.VERIFIED, reason="Clean progress delta", weakest_link="progress")
+
+    # 4. Critical Path (inferred or missing float caps at REVIEW)
+    has_float = compare_data.get("has_explicit_float", False)
+    cp_state = TrustState.VERIFIED if has_float else TrustState.REVIEW
+    cp_assessment = TrustAssessment(state=cp_state, reason="LLM-inferred or missing float" if not has_float else "Explicit float", weakest_link="critical_path")
+
+    # 5. Forecast (inferred AI forecast - unavailable without predictive data)
+    forecast_assessment = TrustAssessment(state=TrustState.UNVERIFIED, reason="No predictive forecast input", weakest_link="forecast")
+
+    return {
+        "schedule_parsing": engine.assess_feature("Schedule Parsing", [parsing_assessment]).state.value,
+        "activity_matching": engine.assess_feature("Activity Matching", [matching_assessment]).state.value,
+        "progress_comparison": engine.assess_feature("Progress Comparison", [progress_assessment]).state.value,
+        "critical_path": engine.assess_feature("Critical Path", [cp_assessment], is_inferred=not has_float).state.value,
+        "forecast": "unavailable",
+    }
+
+
 def adapt_health_dashboard(data: dict, language: str = "en") -> dict:
     es = data.get("executive_summary", {})
     sn = data.get("summary_notes", {})
@@ -443,6 +580,10 @@ def adapt_health_dashboard(data: dict, language: str = "en") -> dict:
     if es.get("data_quality_warning"):
         warnings.append(es.get("data_quality_warning"))
 
+    feat_conf = compute_feature_confidences(es)
+    summary["feature_confidence"] = feat_conf
+    project_trust = compute_project_trust_breakdown(data, es)
+
     return {
         "mode": "health",
         "language": language,
@@ -471,6 +612,8 @@ def adapt_health_dashboard(data: dict, language: str = "en") -> dict:
             "changed_table": changed_count,
         },
         "summary": summary,
+        "feature_confidence": feat_conf,
+        "project_trust": project_trust,
         "actions": [],
         "warnings": warnings,
     }
@@ -509,6 +652,17 @@ def adapt_predictive_dashboard(data: dict, language: str = "en") -> dict:
             }
         )
 
+    # TL-7.2: use the same (already-clamped) `total`/`delayed_count` the
+    # "Activities Analyzed" KPI above shows, not a second, potentially
+    # inconsistent read of `insight["total_activities"]` — the trust
+    # indicator's denominator must always match what the user can already
+    # see elsewhere on the page.
+    project_trust = compute_project_trust_breakdown_predictive({
+        "total_activities": total,
+        "delayed_count": delayed_count,
+        "unverified_delayed_count": insight.get("unverified_delayed_count"),
+    })
+
     return {
         "mode": "predictive",
         "language": language,
@@ -534,5 +688,15 @@ def adapt_predictive_dashboard(data: dict, language: str = "en") -> dict:
         },
         "actions": data.get("executive_actions", [])[:3],
         "root_causes": data.get("root_cause_analysis", [])[:8],
+        # TL-7.4: forecast snapshot fields. These live on the raw `data` dict
+        # (merged response) and were previously discarded by this adapter.
+        # The formatter needs them to render the forecast panel that makes
+        # predictions unambiguously distinct from observed KPI tiles (brief §31).
+        "predictive_snapshot": data.get("predictive_snapshot") or {},
+        "predictive_biggest_risk": data.get("predictive_biggest_risk") or {},
+        # TL-5.6's _classification map travels through so future renderers
+        # can consult it without re-reading the raw data dict.
+        "_classification": data.get("_classification") or {},
+        "project_trust": project_trust,
         "warnings": [],
     }

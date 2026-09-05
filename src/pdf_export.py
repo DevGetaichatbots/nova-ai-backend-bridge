@@ -32,6 +32,26 @@ RENDER_TIMEOUT_S = 90
 # one compact wide page instead of unrolling every hidden row.
 _COLOR_CSS = "*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}"
 
+# TL-7.7 (brief §44): "Do not make dashboard transparent but PDF reports
+# absolute." A static PDF has no `:hover` state and no click handlers, so
+# two trust-layer affordances that depend on interaction would otherwise
+# vanish silently on export:
+#   - `title=` tooltips (TL-7.1 badges, TL-7.2's project-trust summary,
+#     TL-7.3 evidence chips) — never shown without a mouse hovering.
+#   - `.ni-why-panel[hidden]` disclosure panels (TL-7.5's "Why?" buttons)
+#     — collapsed by default, only opened by an `onclick` a PDF can't fire.
+# Scoped to the specific trust-layer classes that carry a tooltip, not a
+# blanket `[title]::after` rule — the dashboard also has non-trust
+# `title` attributes (e.g. the changed-rows expand/collapse button) that
+# must not sprout unwanted parenthetical text in the exported PDF.
+_PDF_TRUST_FALLBACK_CSS = (
+    ".ni-why-panel[hidden]{display:block!important;}"
+    ".ni-trust-badge[title]::after,"
+    ".ni-evidence-label[title]::after,"
+    ".ni-trust-summary[title]::after"
+    "{content:' (' attr(title) ')';font-weight:400;font-style:italic;}"
+)
+
 
 async def _block_external(route):
     """Abort any external (http/https) subresource so a slow/blocked CDN — e.g.
@@ -67,6 +87,11 @@ async def _render(html: str, page_width_px: int) -> bytes:
             # since external requests are blocked.
             await page.wait_for_timeout(500)
             await page.add_style_tag(content=_COLOR_CSS)
+            # TL-7.7: reveal hover-only trust content as static print text
+            # before the page is measured/captured — must land before the
+            # height measurement below, since forcing `.ni-why-panel`
+            # visible can grow the page's scroll height.
+            await page.add_style_tag(content=_PDF_TRUST_FALLBACK_CSS)
             await page.wait_for_timeout(150)
 
             # Measure the default on-screen height (scroll panes stay capped).

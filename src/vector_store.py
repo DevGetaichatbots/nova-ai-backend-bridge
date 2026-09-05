@@ -69,7 +69,7 @@ class VectorStoreManager:
             "message": f"Successfully stored {len(chunks)} chunks in vector store"
         }
     
-    def create_store_from_chunks(self, session_id: str, file_name: str, chunks: list, table_name: str | None = None, progress_callback=None) -> dict:
+    def create_store_from_chunks(self, session_id: str, file_name: str, chunks: list, table_name: str | None = None, progress_callback=None, activities: list | None = None) -> dict:
         def _progress(step, detail, pct):
             if progress_callback:
                 progress_callback(step, detail, pct)
@@ -104,6 +104,10 @@ class VectorStoreManager:
         _progress("storing", f"Storing {len(documents)} chunks in database...", 70)
         logger.info(f"  Storing {len(documents)} chunks in database...")
         insert_embeddings(safe_table_name, documents)
+
+        if activities:
+            from src.database import save_activity_provenance
+            save_activity_provenance(safe_table_name, activities)
 
         _progress("complete", f"Done — {len(chunks)} chunks stored", 100)
         logger.info(f"  Vector store ready: {safe_name}")

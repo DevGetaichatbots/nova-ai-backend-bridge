@@ -167,6 +167,18 @@ TOKEN_MAP: Dict[str, List[str]] = {
     ],
 }
 
+# TL-1.7 cross-reference: this set answers the column-recognition question
+# "which semantic roles must be resolved for the recogniser to skip the AI
+# fallback and return a confident result?"  It has exactly three elements --
+# the minimum viable set for a parseable schedule row.
+#
+# The trust-layer criticality registry (src/trust/fields.py) answers a
+# DIFFERENT question: "which Activity fields, if misread, can materially
+# change analysis and should face stricter trust thresholds?"  That set is
+# broader (six fields including source_id, duration, progress) and is NEVER
+# used to gate AI-fallback behaviour.
+#
+# Do NOT silently merge the two. If either set changes, review both files.
 CRITICAL_FIELDS = {"name", "planned_start", "planned_finish"}
 
 

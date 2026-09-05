@@ -1,0 +1,33 @@
+name: Trust Layer Release Gates (Brief §36, §39)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  release-gates:
+    name: Enforce Blocking Trust Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-subtests httpx
+
+      - name: Enforce Blocking Release Gates (Brief §36, §39)
+        run: |
+          PYTHONPATH=. python -m tests.trust.harness compare
+
+      - name: Run Full Trust Test Suite
+        run: |
+          PYTHONPATH=. pytest tests/trust/ -q

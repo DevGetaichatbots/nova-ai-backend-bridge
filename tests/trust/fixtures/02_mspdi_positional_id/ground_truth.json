@@ -1,0 +1,19 @@
+{
+  "brief_ref": "§9-10 (matching identity vs source activity ID), §12 (Level 2 multi-field match), §35 (positional-ID MS Project pair)",
+  "description": "MSPDI (MS Project XML) pair where the display 'ID' column is purely positional: a task is inserted at the top of the new revision, shifting every subsequent task's ID by one (1->2, 2->3, 3->4). None of the three pre-existing tasks share their old ID with their new ID. Matching must succeed by name (the engine's group key), not by the renumbered positional ID — this is the exact ID problem in brief §9.",
+  "kind": "pair",
+  "format": "MSPDI",
+  "reference_date": "06-06-2026",
+  "requires_azure": false,
+  "expected": {
+    "old_activity_count": 3,
+    "new_activity_count": 4,
+    "added": ["Site Mobilization"],
+    "removed": [],
+    "behind_schedule_count": 1,
+    "ahead_of_schedule_count": 1,
+    "point_of_no_return_count": 1,
+    "project_health": "Red"
+  },
+  "notes": "removed=[] and all 3 pre-existing tasks stay matched despite every one of them changing display ID between revisions -- confirms the engine already does not use the positional ID as an identity key. What it does NOT yet do (tracked for Phase 2, TL-2.5): the output has no field preserving 'previous ID 1 -> current ID 2' for a PM to see why the ID looks like it changed."
+}

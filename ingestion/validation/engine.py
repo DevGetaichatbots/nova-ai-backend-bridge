@@ -3,14 +3,31 @@ Validation Engine
 =================
 Enforces the 4 structural and logical integrity rules on a NormalizedSchedule.
 
-Rule 101: planned_start <= planned_finish  (ERROR, STRUCTURAL)
-Rule 102: No circular dependencies         (ERROR, LOGICAL)
+Rule 101: planned_start <= planned_finish  (WARNING, STRUCTURAL)
+Rule 102: No circular dependencies         (ERROR,    LOGICAL)
 Rule 103: No dangling relationship refs    (WARNING, STRUCTURAL)
 Rule 104: No out-of-sequence progress      (WARNING, QUALITY)
 
 Pipeline behaviour:
 - ERROR-level issues → validation_passed = False → pipeline returns error
 - WARNING-level issues → validation_passed stays True, issues attached to schedule
+
+Notes:
+- Rule 101 is WARNING, not ERROR: normalization auto-swaps inverted dates
+  upstream (see `_pct_to_float` / date handling in
+  `ingestion/normalization/engine.py`), so any survivor reaching
+  ValidationEngine is informational only. Promoting 101 to ERROR would
+  block ingestion on data that has already been corrected in place — the
+  schedule would never get to the dashboard, defeating the point of the
+  auto-swap.
+- Rule 102 is ERROR because a cycle makes the dependency graph structurally
+  unsafe to analyse: every consumer of the schedule (critical-path,
+  predictive, comparison) walks it topologically or assumes it is a DAG,
+  and silently treating a cyclic graph as if it were one is how a trust
+  programme turns into a trust incident. Surfacing this as a gating
+  failure is the rule's whole purpose.
+- See `DECISIONS.md` ADR-007 (TL-0.5) for the full rationale and the
+  reasoning behind not promoting 101.
 """
 from __future__ import annotations
 import logging
@@ -22,6 +39,7 @@ from ingestion.validation.issues import (
     rule_102_circular,
     rule_103_dangling,
     rule_104_out_of_sequence,
+    rule_source_conflict,
     LEVEL_ERROR,
 )
 
@@ -36,6 +54,7 @@ class ValidationEngine:
         issues.extend(self._rule_102(schedule))
         issues.extend(self._rule_103(schedule))
         issues.extend(self._rule_104(schedule))
+        issues.extend(self._rule_conflicts(schedule))
 
         has_errors = any(i.level == LEVEL_ERROR for i in issues)
 
@@ -140,4 +159,86 @@ class ValidationEngine:
         for act in schedule.activities:
             if act.percent_complete > 0 and act.actual_start is None:
                 issues.append(rule_104_out_of_sequence(act.internal_id, act.name[:60]))
+        return issues
+
+    def _rule_conflicts(self, schedule: NormalizedSchedule) -> List[ValidationIssue]:
+        """Detect brief §27 source conflict rules."""
+        issues = []
+        id_to_names: Dict[str, Set[str]] = {}
+        name_to_ids: Dict[str, Set[str]] = {}
+        seen_ids: Set[str] = set()
+
+        for act in schedule.activities:
+            # 1. Duplicate activity IDs
+            if act.internal_id in seen_ids:
+                issues.append(
+                    rule_source_conflict(
+                        act.internal_id,
+                        "duplicate_id",
+                        f"Duplicate activity ID '{act.internal_id}' detected",
+                    )
+                )
+            seen_ids.add(act.internal_id)
+
+            # 2. Finish before start / auto-swapped dates
+            if getattr(act, "has_logic_warning", False):
+                issues.append(
+                    rule_source_conflict(
+                        act.internal_id,
+                        "date_swap",
+                        f"Activity '{act.internal_id}' had transposed/swapped start and finish dates",
+                    )
+                )
+
+            # 3. Progress > 100%
+            if act.percent_complete > 100.0:
+                issues.append(
+                    rule_source_conflict(
+                        act.internal_id,
+                        "invalid_progress",
+                        f"Activity '{act.internal_id}' has progress {act.percent_complete}% > 100%",
+                    )
+                )
+
+            # 4. Missing duration for TASK type
+            if act.activity_type.value == "TASK" and act.duration_hours is None:
+                issues.append(
+                    rule_source_conflict(
+                        act.internal_id,
+                        "missing_duration",
+                        f"Activity '{act.internal_id}' of type TASK has missing duration",
+                    )
+                )
+
+            # Build maps for name/ID conflict checks
+            sid = act.source_id or act.internal_id
+            if sid:
+                id_to_names.setdefault(sid, set()).add(act.name)
+            name_key = f"{act.name}::{act.location_path}"
+            if sid:
+                name_to_ids.setdefault(name_key, set()).add(sid)
+
+        # 5. Same ID -> different names
+        for sid, names in id_to_names.items():
+            if len(names) > 1:
+                issues.append(
+                    rule_source_conflict(
+                        sid,
+                        "same_id_different_names",
+                        f"Activity ID '{sid}' is associated with multiple names: {sorted(names)}",
+                    )
+                )
+
+        # 6. Same activity -> multiple IDs
+        for name_key, sids in name_to_ids.items():
+            if len(sids) > 1:
+                act_name = name_key.split("::")[0]
+                issues.append(
+                    rule_source_conflict(
+                        None,
+                        "same_activity_multiple_ids",
+                        f"Activity '{act_name}' is associated with multiple IDs: {sorted(sids)}",
+                    )
+                )
+
         return issues

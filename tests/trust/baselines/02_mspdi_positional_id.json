@@ -1,0 +1,397 @@
+{
+  "fixture_id": "02_mspdi_positional_id",
+  "health": {
+    "comparison": {
+      "action_recommendations": [
+        {
+          "actions": [
+            "Review manpower",
+            "Confirm blockers",
+            "Update recovery plan"
+          ],
+          "activity": "Excavation Trench 4",
+          "area": "",
+          "duration": "56",
+          "floor": "",
+          "id": "2",
+          "issue": "Excavation Trench 4 is behind expected progress.",
+          "location": {
+            "area": "",
+            "floor": "",
+            "phase": ""
+          },
+          "location_path": "",
+          "phase": "",
+          "resource": "",
+          "source_id": "2",
+          "trade": "",
+          "trade_code": ""
+        }
+      ],
+      "changed_activities": {
+        "added": [
+          "Site Mobilization"
+        ],
+        "changes": [
+          {
+            "activity": "Formwork Wall Section",
+            "area": "",
+            "change_type": "Progress",
+            "duration": "64",
+            "finish_date": "11-06-2026",
+            "floor": "",
+            "id": "3",
+            "location": {
+              "area": "",
+              "floor": "",
+              "phase": ""
+            },
+            "location_path": "",
+            "new": "80.0",
+            "new_duration": "64",
+            "new_finish": "11-06-2026",
+            "new_start": "03-06-2026",
+            "old": "10.0",
+            "old_duration": "64",
+            "old_finish": "11-06-2026",
+            "old_start": "03-06-2026",
+            "phase": "",
+            "resource": "",
+            "source_id": "3",
+            "start_date": "03-06-2026",
+            "trade": "",
+            "trade_code": ""
+          },
+          {
+            "activity": "Rebar Placement Section",
+            "area": "",
+            "change_type": "Progress",
+            "duration": "32",
+            "finish_date": "09-06-2026",
+            "floor": "",
+            "id": "4",
+            "location": {
+              "area": "",
+              "floor": "",
+              "phase": ""
+            },
+            "location_path": "",
+            "new": "25.0",
+            "new_duration": "32",
+            "new_finish": "09-06-2026",
+            "new_start": "05-06-2026",
+            "old": "20.0",
+            "old_duration": "32",
+            "old_finish": "09-06-2026",
+            "old_start": "05-06-2026",
+            "phase": "",
+            "resource": "",
+            "source_id": "4",
+            "start_date": "05-06-2026",
+            "trade": "",
+            "trade_code": ""
+          }
+        ],
+        "removed": []
+      },
+      "critical_path_activities": [],
+      "delay_drivers": [
+        {
+          "affected_count": 1,
+          "description": "1 activities are behind expected progress in Unassigned area.",
+          "driver": "Unassigned area behind"
+        }
+      ],
+      "executive_summary": {
+        "added_activities": 1,
+        "ahead_of_schedule_count": 1,
+        "behind_schedule_count": 1,
+        "confirmed_activities_count": 3,
+        "critical_count": 0,
+        "critical_path_count": 0,
+        "data_quality_warning": "",
+        "overall_progress_pct": 63.8,
+        "point_of_no_return_count": 1,
+        "project_health": "Red",
+        "recommended_action": "Excavation Trench 4 is behind expected progress.",
+        "requires_verification_count": 1,
+        "selected_activities": 4,
+        "trade_counts": {
+          "ALL": 4,
+          "ARK": 0,
+          "BYGH": 0,
+          "EL": 0,
+          "VENT": 0,
+          "VVS": 0
+        }
+      },
+      "filter_options": {
+        "areas": [],
+        "floors": [],
+        "phases": []
+      },
+      "not_started_overdue": [],
+      "point_of_no_return": [
+        {
+          "activity": "Excavation Trench 4",
+          "actual_pct": 50.0,
+          "area": "",
+          "assessment": "POINT OF NO RETURN",
+          "classification": "Red",
+          "duration": "56",
+          "expected_pct": 71.4,
+          "floor": "",
+          "id": "2",
+          "location": {
+            "area": "",
+            "floor": "",
+            "phase": ""
+          },
+          "location_path": "",
+          "phase": "",
+          "recommendation": "Recover Excavation Trench 4 before the finish date.",
+          "remaining_time": "2 days",
+          "resource": "",
+          "source_id": "2",
+          "trade": "",
+          "trade_code": "",
+          "variance_pct": -21.4
+        }
+      ],
+      "progress_vs_expected": [
+        {
+          "activity": "Excavation Trench 4",
+          "actual_pct": 50.0,
+          "area": "",
+          "duration": "56",
+          "expected_pct": 71.4,
+          "finish_date": "08-06-2026",
+          "floor": "",
+          "id": "2",
+          "late_flag": false,
+          "location": {
+            "area": "",
+            "floor": "",
+            "phase": ""
+          },
+          "location_path": "",
+          "phase": "",
+          "resource": "",
+          "source_id": "2",
+          "start_date": "01-06-2026",
+          "status": "behind",
+          "trade": "",
+          "trade_code": "",
+          "variance_pct": -21.4
+        },
+        {
+          "activity": "Formwork Wall Section",
+          "actual_pct": 80.0,
+          "area": "",
+          "duration": "64",
+          "expected_pct": 37.5,
+          "finish_date": "11-06-2026",
+          "floor": "",
+          "id": "3",
+          "late_flag": false,
+          "location": {
+            "area": "",
+            "floor": "",
+            "phase": ""
+          },
+          "location_path": "",
+          "phase": "",
+          "resource": "",
+          "source_id": "3",
+          "start_date": "03-06-2026",
+          "status": "ahead",
+          "trade": "",
+          "trade_code": "",
+          "variance_pct": 42.5
+        }
+      ],
+      "requires_verification_activities": [
+        {
+          "activity": "Site Mobilization",
+          "area": "",
+          "candidates": [],
+          "duration": "32",
+          "floor": "",
+          "id": "1",
+          "level": "L5_NO_RELIABLE_MATCH",
+          "location": {
+            "area": "",
+            "floor": "",
+            "phase": ""
+          },
+          "location_path": "",
+          "match_key": "site mobilization|",
+          "method": "unmatched",
+          "phase": "",
+          "reason": "Nova found insufficient evidence to reliably match this activity between the two schedules. The activity has therefore been excluded from confirmed comparison results.",
+          "resource": "",
+          "source_id": "1",
+          "trade": "",
+          "trade_code": ""
+        }
+      ],
+      "stage_mismatch": [
+        {
+          "activity": "Site Mobilization",
+          "actual_pct": 100.0,
+          "area": "",
+          "difference_pct": 0.0,
+          "duration": "32",
+          "expected_pct": 100.0,
+          "floor": "",
+          "id": "1",
+          "location": {
+            "area": "",
+            "floor": "",
+            "phase": ""
+          },
+          "location_path": "",
+          "phase": "",
+          "resource": "",
+          "source_id": "1",
+          "status": "OK",
+          "trade": "",
+          "trade_code": ""
+        },
+        {
+          "activity": "Excavation Trench 4",
+          "actual_pct": 50.0,
+          "area": "",
+          "difference_pct": -21.4,
+          "duration": "56",
+          "expected_pct": 71.4,
+          "floor": "",
+          "id": "2",
+          "location": {
+            "area": "",
+            "floor": "",
+            "phase": ""
+          },
+          "location_path": "",
+          "phase": "",
+          "resource": "",
+          "source_id": "2",
+          "status": "Mismatch",
+          "trade": "",
+          "trade_code": ""
+        },
+        {
+          "activity": "Formwork Wall Section",
+          "actual_pct": 80.0,
+          "area": "",
+          "difference_pct": 42.5,
+          "duration": "64",
+          "expected_pct": 37.5,
+          "floor": "",
+          "id": "3",
+          "location": {
+            "area": "",
+            "floor": "",
+            "phase": ""
+          },
+          "location_path": "",
+          "phase": "",
+          "resource": "",
+          "source_id": "3",
+          "status": "Mismatch",
+          "trade": "",
+          "trade_code": ""
+        },
+        {
+          "activity": "Rebar Placement Section",
+          "actual_pct": 25.0,
+          "area": "",
+          "difference_pct": 0.0,
+          "duration": "32",
+          "expected_pct": 25.0,
+          "floor": "",
+          "id": "4",
+          "location": {
+            "area": "",
+            "floor": "",
+            "phase": ""
+          },
+          "location_path": "",
+          "phase": "",
+          "resource": "",
+          "source_id": "4",
+          "status": "OK",
+          "trade": "",
+          "trade_code": ""
+        }
+      ],
+      "summary_notes": {
+        "added_count": 1,
+        "current_data_date": "06 June 2026",
+        "delayed_activities": 1,
+        "finished_activities": 1,
+        "mean_expected_pct_all": 20.0,
+        "overall_progress_delta": 37.1,
+        "overall_progress_new_pct": 63.8,
+        "overall_progress_old_pct": 26.7,
+        "previous_data_date": "05 June 2026",
+        "removed_count": 0,
+        "reporting_period_new": "06-06-2026",
+        "reporting_period_old": "",
+        "requires_verification_count": 1,
+        "total_activities": 4
+      },
+      "versions": {
+        "analysis_engine": "nusf-compare-engine-v1.4",
+        "manual_corrections": "corrections:none",
+        "matching_algorithm": "nusf-matcher-v3.2",
+        "model": "deterministic-comparison-engine",
+        "parser": "nusf-pipeline-v2.1",
+        "prompt": "comparison-prompt-v1.0",
+        "schedule_revision": "06-06-2026"
+      }
+    },
+    "fixture_id": "02_mspdi_positional_id",
+    "new_pipeline_error": null,
+    "new_schedule": {
+      "activity_count": 4,
+      "issue_count": 4,
+      "issue_levels": [
+        "WARNING",
+        "WARNING",
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    },
+    "old_pipeline_error": null,
+    "old_schedule": {
+      "activity_count": 3,
+      "issue_count": 3,
+      "issue_levels": [
+        "WARNING",
+        "WARNING",
+        "WARNING"
+      ],
+      "issue_rules": [
+        "Rule 104"
+      ],
+      "logic_warning_count": 0,
+      "validation_passed": true
+    }
+  },
+  "predictive": {
+    "fixture_id": "02_mspdi_positional_id",
+    "predictive_facts": {
+      "critical_count": 0,
+      "delayed_areas": [],
+      "delayed_count": 1,
+      "point_of_no_return_red_count": 1,
+      "point_of_no_return_yellow_count": 0
+    }
+  }
+}

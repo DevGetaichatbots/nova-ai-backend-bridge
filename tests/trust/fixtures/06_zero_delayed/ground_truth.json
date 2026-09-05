@@ -1,0 +1,19 @@
+{
+  "brief_ref": "§35 (a schedule with zero delayed activities)",
+  "description": "Small, healthy schedule: identical activities in both revisions, one with a small progress bump, none behind. Control fixture for 'nothing is wrong' -- Nova should report a clean Green result, not manufacture a delay or a PONR entry out of nothing.",
+  "kind": "pair",
+  "format": "CSV",
+  "reference_date": "01-06-2026",
+  "requires_azure": false,
+  "expected": {
+    "old_activity_count": 3,
+    "new_activity_count": 3,
+    "added": [],
+    "removed": [],
+    "behind_schedule_count": 0,
+    "point_of_no_return_count": 0,
+    "critical_count": 0,
+    "project_health": "Green"
+  },
+  "notes": "behind_schedule_count==0 and point_of_no_return_count==0 are the load-bearing assertions -- this fixture exists so a matching/status regression that starts flagging healthy activities as behind has something to fail against."
+}
